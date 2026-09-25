@@ -5,7 +5,7 @@
 # Env: LOGGER_URL (tap -> logger, e.g. http://logger:8080), BROWSER_LOGGER_URL (browser -> logger),
 #      GATEWAY_HOST (SSH gateway host, default: LOGGER_URL's host), GATEWAY_PORT (default 2222),
 #      SSH_TARGETS (space-separated gateway usernames to add as ssh hosts, default "gpu").
-# Runs as root: reads /run/plant (owned by the host user), sets up /home/agent, then drops to agent.
+# Runs as root: reads /run/plant (owned by the host user) and sets up /home/agent; supervisord runs every service as agent.
 set -eu
 export HOME=/home/agent USER=agent
 K=/run/plant
@@ -63,4 +63,4 @@ fi
 chown -R agent:agent "$HOME/.config" "$HOME/.ssh" "$HOME/.local" "$HOME/sessions"
 [ -L "$HOME/workspace" ] || chown -R agent:agent "$HOME/workspace"
 chown agent:agent "$HOME"
-exec setpriv --reuid=agent --regid=agent --init-groups supervisord -c /opt/plant/supervisord.conf
+exec supervisord -c /opt/plant/supervisord.conf
