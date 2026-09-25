@@ -1,28 +1,28 @@
 # RSI pilot plant
 
-A small, inspectable setup for running an AI coding agent where **every model call and every GPU command goes through one logger** that writes a signed, hash-chained record. Model inference runs in [Tinfoil](https://tinfoil.sh) confidential-computing enclaves, and the attestation is checked before any request goes out.
+A small, inspectable setup for running an AI coding agent where every model call and every GPU command goes through a logging gateway that writes a signed, hash-chained record. Model inference runs in [Tinfoil](https://tinfoil.sh) confidential-computing enclaves.
 
-It's a pilot plant, not a product: the point is to see what it takes to make an autonomous agent's work reconstructable and checkable afterwards, and where the trust gaps still are. See [docs/architecture.md](docs/architecture.md) for the full picture and [docs/trust.md](docs/trust.md) for what is and isn't proven.
+See [docs/architecture.md](docs/architecture.md) for the full picture and [docs/trust.md](docs/trust.md) of what is and isn't proven.
 
 ```
-            ┌──────────── scaffold (no internet) ────────────┐
+            ┌──────────── scaffold (no internet) ──────────--──┐
             │  OpenCode agent ──► tap :3300 (witness record)   │
             │        │                  │                      │
             │     ssh gpu 'cmd'         │ model calls          │
             └────────┼──────────────────┼──────────────────────┘
                      ▼                  ▼
-            ┌──────────────────── logger ─────────────────────┐
+            ┌──────────────────── logger ─────────────────-────┐
             │  SSH gateway :2222      model gateway /v1/model  │──► tinfoil-proxy ──► Tinfoil enclaves
             │  (commands only)        (adds the Tinfoil key)   │    (verifies attestation, pins TLS key)
-            │            └──► signed hash-chained log ◄──┘      │
+            │            └──► signed hash-chained log ◄──┘     │
             └────────┼─────────────────────────────────────────┘
                      ▼
                GPU server (sshd; only the gateway's key)
 ```
 
-## Quick start (Docker, everything local)
+## Quick start (Docker)
 
-Needs Docker with Compose v2.24+. A Tinfoil API key is optional: without one, everything works except the model replies (they come back as errors, and those are logged too).
+Needs Docker with Compose v2.24+. Without a tinfoil API key everything works except the model replies (they come back as errors, and those are logged too).
 
 ```sh
 git clone https://github.com/Calebp98/rsi-pilot-plant && cd rsi-pilot-plant
@@ -54,10 +54,8 @@ uv run --with cryptography python tools/verify_log.py \
 | Setup | What you get | Guide |
 |---|---|---|
 | Docker Compose | logger + scaffold + stand-in GPU on your machine | above |
-| Fly.io + Sprite + Runpod | the original deployment: logger on a Fly Machine, scaffold on a Fly Sprite with an egress allowlist, a real GPU pod | [docs/deploy-fly.md](docs/deploy-fly.md) |
+| Fly.io + Sprite + Runpod | Logger on a Fly Machine, scaffold on a Fly Sprite with an egress allowlist, a GPU pod | [docs/deploy-fly.md](docs/deploy-fly.md) |
 | Laptop only | OpenCode or a minimal chat app talking to Tinfoil through a local verifying proxy; no logger | [local/](local/README.md) |
-
-Parts are usable on their own: the logger is one Python process with no dependencies beyond `cryptography`, `asyncssh` and `tinfoil`; the tap is one file; the verifier is one file.
 
 ## Layout
 
