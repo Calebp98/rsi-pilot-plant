@@ -1,6 +1,6 @@
 # RSI pilot plant
 
-A small, inspectable setup for running an AI coding agent where every model call and every GPU command goes through a logging gateway that writes a signed, hash-chained record. Model inference runs in [Tinfoil](https://tinfoil.sh) confidential-computing enclaves.
+A small, inspectable setup for running an AI coding agent where model calls and GPU commands go through a logging gateway that writes a signed, hash-chained record. Model inference runs in [Tinfoil](https://tinfoil.sh) confidential-computing enclaves.
 
 See [docs/architecture.md](docs/architecture.md) for the full picture and [docs/trust.md](docs/trust.md) of what is and isn't proven.
 
