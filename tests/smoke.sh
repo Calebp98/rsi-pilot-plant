@@ -35,7 +35,7 @@ pass() { printf '  ok    %s\n' "$1"; }
 fail() { printf '  FAIL  %s\n' "$1"; exit 1; }
 
 echo "build + init"
-[ -n "${NO_BUILD:-}" ] || dc build -q
+[ -n "${NO_BUILD:-}" ] || dc build
 dc run --rm init >/dev/null
 dc up -d --wait --wait-timeout 180 logger gpu scaffold console
 
