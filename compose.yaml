@@ -1,0 +1,77 @@
+# Local pilot plant: logger (+ model and SSH gateways) <- scaffold (OpenCode, tap, dashboard) and a stand-in GPU.
+#
+#   docker compose run --rm init        # once: generate keys and tokens into ./state
+#   TINFOIL_API_KEY=... docker compose up --build
+#   open http://127.0.0.1:8080          # user lucid, password printed by init
+#
+# Networks mirror the Fly deployment's egress allowlist: the scaffold and the GPU can reach only the logger,
+# and only the logger has internet (for Tinfoil). The console service exists because Docker can't publish
+# ports from a container that is only on an internal network.
+
+x-image-tag: &tag ${PLANT_TAG:-latest}
+
+services:
+  init:
+    profiles: [init]
+    image: ghcr.io/lucid-computing/rsi-pilot-plant-logger:${PLANT_TAG:-latest}
+    build: ./logger
+    entrypoint: ["python", "-u", "/tools/init.py"]
+    volumes:
+      - ./state:/state
+      - ./tools/init.py:/tools/init.py:ro
+    network_mode: none
+
+  logger:
+    image: ghcr.io/lucid-computing/rsi-pilot-plant-logger:${PLANT_TAG:-latest}
+    build: ./logger
+    env_file:
+      - path: state/logger.env
+        required: false
+    environment:
+      TINFOIL_API_KEY: ${TINFOIL_API_KEY:-}
+    volumes:
+      - ./state/logger/data:/data
+    ports:
+      - "127.0.0.1:8081:8080"   # the dashboard's browser reads and verifies the log here
+    networks: [edge, plant, gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      retries: 20
+
+  scaffold:
+    image: ghcr.io/lucid-computing/rsi-pilot-plant-scaffold:${PLANT_TAG:-latest}
+    build: ./scaffold
+    environment:
+      LOGGER_URL: http://logger:8080
+      BROWSER_LOGGER_URL: http://127.0.0.1:8081
+    volumes:
+      - ./state/scaffold:/run/plant:ro
+      - scaffold-home:/home/agent
+    networks: [plant]
+    depends_on:
+      logger: {condition: service_healthy}
+
+  console:
+    image: ghcr.io/lucid-computing/rsi-pilot-plant-scaffold:${PLANT_TAG:-latest}
+    entrypoint: ["caddy", "reverse-proxy", "--from", ":8080", "--to", "scaffold:8080"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks: [edge, plant]
+    depends_on: [scaffold]
+
+  gpu:
+    image: ghcr.io/lucid-computing/rsi-pilot-plant-gpu-standin:${PLANT_TAG:-latest}
+    build: ./gpu-standin
+    env_file:
+      - path: state/gpu.env
+        required: false
+    networks: [gpu]
+
+networks:
+  edge: {}
+  plant: {internal: true}
+  gpu: {internal: true}
+
+volumes:
+  scaffold-home: {}

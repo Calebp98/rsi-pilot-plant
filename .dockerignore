@@ -1,0 +1,4 @@
+state
+.git
+**/__pycache__
+**/.venv

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tinfoil Chat</title>
+<style>
+  :root { --fg: #000; --bg: #fff; --mute: #777; --line: #000; --accent: #cde8d8; --tool: #f3f3f3; }
+  * { box-sizing: border-box; border-radius: 0; }
+  body { margin: 0; font: 14px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--fg); background: var(--bg); }
+  .wrap { display: grid; grid-template-columns: 1fr 300px; height: 100vh; }
+  main { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); }
+  header { padding: 10px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  header b { letter-spacing: .05em; margin-right: auto; }
+  select { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--bg); padding: 2px 4px; }
+  label { font-size: 12px; display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  #log { flex: 1; overflow-y: auto; padding: 16px; }
+  .msg { margin-bottom: 20px; max-width: 760px; }
+  .who { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); }
+  .text { white-space: pre-wrap; word-wrap: break-word; }
+  .user .text { background: var(--fg); color: var(--bg); padding: 8px 12px; display: inline-block; }
+  details { margin: 6px 0; border-left: 2px solid var(--accent); padding-left: 10px; color: var(--mute); }
+  details.tool { border-left-color: var(--line); background: var(--tool); color: var(--fg); padding: 4px 10px; }
+  details.tool .text { font-size: 12px; max-height: 240px; overflow: auto; }
+  summary { cursor: pointer; font-size: 12px; }
+  .meta { font-size: 11px; color: var(--mute); margin-top: 6px; }
+  .err { color: #b00; }
+  form { display: flex; border-top: 1px solid var(--line); }
+  textarea { flex: 1; border: 0; padding: 14px 16px; font: inherit; resize: none; height: 72px; outline: none; }
+  button { border: 0; border-left: 1px solid var(--line); background: var(--fg); color: var(--bg); font: inherit; padding: 0 22px; cursor: pointer; }
+  button:disabled { background: var(--mute); cursor: wait; }
+  button.small { border: 1px solid var(--line); padding: 4px 10px; font-size: 12px; }
+  aside { padding: 16px; overflow-y: auto; font-size: 12px; }
+  aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  aside h3:first-child { margin-top: 0; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; }
+  dt { color: var(--mute); }
+  dd { margin: 0; word-break: break-all; }
+  dd a { color: inherit; }
+  .note { color: var(--mute); margin-top: 8px; }
+  .badge { display: inline-block; padding: 2px 8px; border: 1px solid var(--line); margin-bottom: 8px; font-weight: bold; letter-spacing: .06em; }
+  .badge.ok { background: var(--accent); }
+  .badge.bad { background: #f4cccc; }
+  #reverify { margin-top: 10px; }
+  @media (max-width: 760px) {
+    .wrap { grid-template-columns: 1fr; height: auto; }
+    main { height: 80vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main>
+    <header>
+      <b>TINFOIL CHAT</b>
+      <select id="modelSel"></select>
+      <label><input type="checkbox" id="agent" checked> agent (files)</label>
+      <button id="clear" type="button" class="small">Clear</button>
+      <span id="total" class="who">session $0.000000</span>
+    </header>
+    <div id="log"></div>
+    <form id="f">
+      <textarea id="q" placeholder="Message  (Enter to send, Shift+Enter for newline)"></textarea>
+      <button id="send">Send</button>
+    </form>
+  </main>
+  <aside>
+    <h3>Workspace</h3><dl id="ws"><dt>path</dt><dd>—</dd></dl>
+    <p class="note">In agent mode the model can list, read, write and edit files in this folder only.</p>
+    <h3>Model</h3><dl id="model"><dt>loading</dt><dd></dd></dl>
+    <h3>Last response</h3><dl id="last"><dt>none yet</dt><dd></dd></dl>
+    <h3>Verification</h3>
+    <div id="vstatus" class="badge">checking</div>
+    <dl id="ver"></dl>
+    <button id="reverify" type="button" class="small">Re-verify</button>
+    <p class="note">Checked by Tinfoil's open-source SDK in the local server: AMD/Intel hardware report, code hash vs. the Sigstore-signed GitHub release, and TLS/HPKE keys bound to the report. The connection is pinned to those keys. This covers the router enclave; the router-to-model hop relies on the router's attested code.</p>
+  </aside>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let history = [];
+let total = 0;
+let models = {};
+
+function dl(el, rows) {
+  el.replaceChildren(...rows.flatMap(([k, v]) => {
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v ?? "—";
+    return [dt, dd];
+  }));
+}
+
+function fold(summary, body, cls = "") {
+  const d = document.createElement("details");
+  if (cls) d.className = cls;
+  const s = document.createElement("summary"); s.textContent = summary;
+  const p = document.createElement("div"); p.className = "text"; p.textContent = body;
+  d.append(s, p);
+  return d;
+}
+
+function add(role, text, extra = {}) {
+  const m = document.createElement("div");
+  m.className = "msg " + role;
+  const who = document.createElement("div"); who.className = "who";
+  who.textContent = role === "user" ? "you" : (extra.model || "assistant");
+  m.append(who);
+  for (const s of extra.steps || []) {
+    if (s.reasoning) m.append(fold("reasoning", s.reasoning));
+    const arg = s.args.path ? ` ${s.args.path}` : "";
+    const body = JSON.stringify(s.args, null, 1) + "\n→ " + s.result;
+    m.append(fold(`${s.tool}${arg}`, body, "tool"));
+  }
+  if (extra.reasoning) m.append(fold("reasoning", extra.reasoning));
+  const t = document.createElement("div");
+  t.className = "text" + (extra.error ? " err" : "");
+  t.textContent = text;
+  m.append(t);
+  if (extra.meta) { const s = document.createElement("div"); s.className = "meta"; s.textContent = extra.meta; m.append(s); }
+  $("log").append(m);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+function showModel() {
+  const m = models[$("modelSel").value] || {};
+  const p = m.pricing || {};
+  dl($("model"), [
+    ["id", m.id], ["name", m.name], ["context", m.context_window?.toLocaleString() + " tok"],
+    ["input", `$${p.inputTokenPricePer1M}/1M`], ["output", `$${p.outputTokenPricePer1M}/1M`],
+    ["reasoning", String(m.reasoning)], ["tools", String(m.tool_calling)],
+    ["about", m.description],
+  ]);
+}
+
+const short = h => h ? h.slice(0, 16) + "…" : null;
+
+function showVerification(v) {
+  const ok = v && v.securityVerified;
+  $("vstatus").textContent = ok ? "VERIFIED" : "NOT VERIFIED";
+  $("vstatus").className = "badge " + (ok ? "ok" : "bad");
+  if (!v) return dl($("ver"), [["error", "no verification document"]]);
+  dl($("ver"), [
+    ...Object.entries(v.steps || {}).map(([k, s]) => [k, s.status + (s.error ? ": " + s.error : "")]),
+    ["repo", v.configRepo], ["release", v.releaseTag], ["host", v.enclaveHost],
+    ["platform", v.enclaveMeasurement?.measurement?.type?.split("/predicate/")[1]],
+    ["measurement", short(v.enclaveFingerprint)], ["tls key", short(v.tlsPublicKey)], ["hpke key", short(v.hpkePublicKey)],
+    ["verifier", `${v.verifier?.name} ${v.verifier?.version}`], ["checked", v.verifiedAt?.replace("T", " ").slice(0, 19) + " UTC"],
+  ]);
+  const rel = $("ver").querySelectorAll("dd")[Object.keys(v.steps || {}).length + 1];
+  if (rel && v.configRepo && v.releaseTag) {
+    const a = document.createElement("a");
+    a.href = `https://github.com/${v.configRepo}/releases/tag/${v.releaseTag}`;
+    a.target = "_blank"; a.textContent = v.releaseTag;
+    rel.replaceChildren(a);
+  }
+}
+
+fetch("/api/info").then(r => r.json()).then(info => {
+  models = info.models;
+  const ids = Object.keys(models).sort((a, b) =>
+    (models[a].pricing?.outputTokenPricePer1M ?? 99) - (models[b].pricing?.outputTokenPricePer1M ?? 99));
+  $("modelSel").replaceChildren(...ids.map(id => {
+    const o = document.createElement("option");
+    o.value = id; o.textContent = `${id}  $${models[id].pricing?.outputTokenPricePer1M}/1M out`;
+    o.selected = id === info.default_model;
+    return o;
+  }));
+  dl($("ws"), [["path", info.workspace]]);
+  showModel();
+  showVerification(info.verification);
+}).catch(e => dl($("model"), [["error", e.message]]));
+
+$("modelSel").addEventListener("change", showModel);
+$("clear").addEventListener("click", () => { history = []; $("log").replaceChildren(); });
+
+$("reverify").addEventListener("click", async () => {
+  $("reverify").disabled = true;
+  $("vstatus").textContent = "checking"; $("vstatus").className = "badge";
+  try {
+    const r = await fetch("/api/verify", { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    showVerification(d);
+  } catch (e) {
+    showVerification(null);
+    dl($("ver"), [["error", e.message]]);
+  } finally { $("reverify").disabled = false; }
+});
+
+async function send() {
+  const text = $("q").value.trim();
+  if (!text) return;
+  const model = $("modelSel").value;
+  $("q").value = "";
+  add("user", text);
+  const pending = [...history, { role: "user", content: text }];
+  $("send").disabled = true;
+  try {
+    const r = await fetch("/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: pending, model, agent: $("agent").checked }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : JSON.stringify(d.error));
+    history = [...pending, ...d.new_messages];
+    total += d.cost_usd;
+    $("total").textContent = `session $${total.toFixed(6)}`;
+    const u = d.usage;
+    const tools = d.steps.length ? ` · ${d.steps.length} tool calls` : "";
+    add("assistant", d.content, {
+      model, steps: d.steps, reasoning: d.reasoning,
+      meta: `${u.prompt_tokens} in · ${u.completion_tokens} out · $${d.cost_usd.toFixed(6)} · ${d.latency_s}s${tools}`,
+    });
+    dl($("last"), [
+      ["enclave", d.enclave], ["predicates", (d.predicates || []).map(x => x.split("/predicate/")[1]).join(", ")],
+      ["finish", d.finish_reason], ["fingerprint", d.system_fingerprint], ["id", d.id],
+    ]);
+  } catch (e) {
+    add("assistant", "Error: " + e.message, { error: true });
+  } finally {
+    $("send").disabled = false;
+    $("q").focus();
+  }
+}
+
+$("f").addEventListener("submit", e => { e.preventDefault(); send(); });
+$("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+</script>
+</body>
+</html>

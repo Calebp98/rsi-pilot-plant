@@ -1,0 +1,11 @@
+# Port rather than ListenAddress [::]:2200, so it also listens on IPv4 inside Docker.
+Port 2200
+HostKey /etc/ssh/ssh_host_ed25519_key
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers lucid
+AllowTcpForwarding no
+X11Forwarding no
+PermitTunnel no
+Subsystem sftp internal-sftp

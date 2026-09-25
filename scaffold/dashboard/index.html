@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scaffold Console</title>
+<style>
+  :root { --fg: #000; --bg: #fff; --mute: #777; --line: #000; --ok: #cde8d8; --bad: #f4cccc; --warn: #f6ecc4; --soft: #f3f3f3; }
+  * { box-sizing: border-box; border-radius: 0; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: var(--fg); background: var(--bg); }
+  header { display: flex; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header b { letter-spacing: .06em; margin-right: 8px; }
+  header .sp { margin-left: auto; color: var(--mute); font-size: 11px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 440px; height: calc(100vh - 40px); }
+  .left { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+  .tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .tabs button { border: 0; border-right: 1px solid var(--line); padding: 5px 14px; background: var(--bg); font-size: 12px; }
+  .tabs button.on { background: var(--fg); color: var(--bg); }
+  .tabs .hint { padding: 5px 12px; font-size: 11px; color: var(--mute); }
+  .pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  iframe { flex: 1; width: 100%; border: 0; background: #000; }
+  #logpane { overflow: auto; padding: 12px 16px; }
+  aside { overflow-y: auto; padding: 0 16px 16px; }
+  section { margin-top: 14px; border: 1px solid var(--line); padding: 8px 10px; }
+  h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 6px; display: flex; gap: 8px; align-items: center; }
+  h3 .r { margin-left: auto; display: flex; gap: 6px; }
+  h4 { font-size: 11px; color: var(--mute); font-weight: normal; margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .06em; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; }
+  dt { color: var(--mute); }
+  dd { margin: 0; word-break: break-all; }
+  .badge { display: inline-block; padding: 1px 7px; border: 1px solid var(--line); font-weight: bold; letter-spacing: .04em; font-size: 11px; }
+  .ok { background: var(--ok); } .bad { background: var(--bad); } .warn { background: var(--warn); } .wait { background: var(--soft); }
+  button { font: inherit; font-size: 11px; border: 1px solid var(--line); background: var(--bg); padding: 1px 8px; cursor: pointer; }
+  button:hover { background: var(--fg); color: var(--bg); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 3px 8px 3px 0; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+  th { color: var(--mute); font-weight: normal; }
+  tr.entry { cursor: pointer; } tr.entry:hover { background: var(--soft); }
+  .scroll { max-height: 200px; overflow: auto; }
+  pre { margin: 0; font-size: 11px; background: var(--soft); padding: 6px; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  details.check { margin-top: 8px; } details.check summary { cursor: pointer; font-size: 11px; color: var(--mute); }
+  details.check pre { max-height: none; }
+  .note { color: var(--mute); font-size: 11px; margin: 6px 0 0; }
+  .detail { background: var(--soft); padding: 8px; }
+  .detail .text { white-space: pre-wrap; word-break: break-word; }
+  a { color: inherit; }
+  .nsbar { border-bottom: 1px solid var(--line); padding: 10px 16px; background: var(--warn); font-size: 12px; }
+  button.solid { background: var(--fg); color: var(--bg); }
+  /* map */
+  #mappane { overflow: auto; }
+  .mapbar { display: flex; gap: 6px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .mapl { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); }
+  button.layer { display: inline-flex; align-items: center; gap: 6px; opacity: .45; }
+  button.layer.on { opacity: 1; }
+  button.layer:hover { background: var(--bg); color: var(--fg); opacity: 1; }
+  .sw { display: inline-block; width: 18px; height: 0; border-top: 2px solid #000; }
+  .sw.logging { border-top: 2px dashed #3d6fb6; } .sw.console { border-top: 2px solid #7a5bb5; } .sw.operator { border-top: 2px dashed #b5761f; } .sw.verify { border-top: 2px dotted #2e8b57; } .sw.trust { border-top: 2px dashed #c0392b; }
+  .mapwrap { padding: 8px 12px 0; }
+  #map { width: 100%; height: auto; display: block; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  #map .grp { fill: none; stroke: #000; stroke-width: 1; }
+  #map .grp.inner { stroke-dasharray: 4 3; }
+  #map .glabel { font-size: 12px; font-weight: bold; letter-spacing: .06em; fill: #000; }
+  #map .gsub { font-size: 10px; fill: #777; }
+  #map .node rect { stroke: #000; stroke-width: 1.2; cursor: pointer; }
+  #map .node text { pointer-events: none; }
+  #map .node .t1 { font-size: 12.5px; font-weight: bold; }
+  #map .node .t2 { font-size: 10px; fill: #444; }
+  #map .node.sel rect { stroke-width: 3; }
+  #map .node.ok rect { fill: #cde8d8; } #map .node.warn rect { fill: #f6ecc4; } #map .node.bad rect { fill: #f4cccc; } #map .node.idle rect { fill: #fff; }
+  #map .edge { fill: none; stroke-width: 1.6; }
+  #map .edge.traffic { stroke: #000; }
+  #map .edge.logging { stroke: #3d6fb6; stroke-dasharray: 7 4; }
+  #map .edge.verify { stroke: #2e8b57; stroke-dasharray: 2 4; stroke-width: 2.2; }
+  #map .edge.trust { stroke: #c0392b; stroke-dasharray: 9 5; }
+  #map .edge.console { stroke: #7a5bb5; }
+  #map .edge.operator { stroke: #b5761f; stroke-dasharray: 5 3; }
+  #map .edge.sel { stroke-width: 3.5; }
+  #map .hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; }
+  #map .elabel { font-size: 10px; pointer-events: none; }
+  #map .elabel rect { fill: #fff; stroke: none; }
+  #map .pulse { pointer-events: none; }
+  #map .off { display: none; }
+  .minfo { margin: 8px 12px 12px; border: 1px solid var(--line); padding: 10px 12px; font-size: 12px; min-height: 90px; }
+  .minfo h5 { margin: 0 0 6px; font-size: 13px; }
+  .minfo .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px 18px; margin-top: 8px; }
+  .minfo .k { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); margin-bottom: 2px; }
+  .minfo ul { margin: 0; padding-left: 16px; }
+  .minfo .live { background: var(--soft); padding: 6px 8px; margin-top: 8px; }
+  @media (max-width: 960px) {
+    .grid { grid-template-columns: 1fr; height: auto; }
+    .left { height: 75vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <b>SCAFFOLD CONSOLE</b>
+  <span id="b-scaffold" class="badge wait">scaffold …</span>
+  <span id="b-tinfoil" class="badge wait">tinfoil …</span>
+  <span id="b-logger" class="badge wait">logger …</span>
+  <span id="b-gpu" class="badge wait">GPU: checking…</span>
+  <span class="sp" id="updated">—</span>
+  <span id="sess" class="mapl">session —</span>
+  <span id="b-view" class="badge wait" hidden title="Read-only link: no terminal, no New session. Entries come through the Sprite, and your browser still checks every hash and signature.">view only</span>
+  <button id="ns-open">New session</button>
+</header>
+<div id="ns-bar" class="nsbar" hidden>
+  <div><b>Start a new session?</b> This stops the agent (OpenCode in the terminal), archives the current log (<span id="ns-count">?</span> entries) and opens a new one linked to it, gives the agent a fresh empty directory and fresh OpenCode state, and records a manifest of versions and hashes. The GPU server's files are <b>not</b> reset.</div>
+  <div style="margin-top:8px; display:flex; gap:8px"><button id="ns-go" class="solid">Start new session</button><button id="ns-cancel">Cancel</button><span id="ns-msg" class="mapl"></span></div>
+</div>
+<div class="grid">
+  <div class="left">
+    <div class="tabs">
+      <button id="t-map" class="on">Map</button>
+      <button id="t-term">Terminal</button>
+      <button id="t-log">Log</button>
+      <span class="hint" id="tabhint" hidden>tmux session "main" · run <b>agent</b> for OpenCode · closing the tab keeps it running</span>
+    </div>
+    <div class="pane" id="mappane">
+      <div class="mapbar">
+        <span class="mapl">layers</span>
+        <button class="layer on" data-layer="traffic"><i class="sw traffic"></i>traffic</button>
+        <button class="layer on" data-layer="logging"><i class="sw logging"></i>logging</button>
+        <button class="layer on" data-layer="verify"><i class="sw verify"></i>verification</button>
+        <button class="layer" data-layer="console"><i class="sw console"></i>console</button>
+        <button class="layer" data-layer="operator"><i class="sw operator"></i>operator</button>
+        <button class="layer" data-layer="trust"><i class="sw trust"></i>trust gaps</button>
+        <span class="mapl" style="margin-left:auto">live</span>
+        <button id="m-replay">Replay latest entry</button>
+        <button id="m-demo">Demo both flows</button>
+      </div>
+      <div class="mapwrap"><svg id="map" viewBox="0 0 1400 880" role="img" aria-label="System map"></svg></div>
+      <div id="m-info" class="minfo"><b>Click any box or arrow.</b> Boxes are coloured by live status. Dots travel along the path each new log entry took.</div>
+    </div>
+    <div class="pane" id="termpane" hidden><iframe data-src="/term/" title="terminal"></iframe></div>
+    <div class="pane" id="logpane" hidden>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+        <span id="lv-badge" class="badge wait">not verified</span>
+        <button id="lv-full">Full re-verify in browser</button>
+        <span class="note" id="lv-summary" style="margin:0"></span>
+      </div>
+      <table style="margin-top:10px"><thead><tr><th>seq</th><th>time</th><th>client</th><th>kind</th><th>summary</th><th>sig</th></tr></thead>
+        <tbody id="entries"></tbody></table>
+    </div>
+  </div>
+  <aside>
+    <section>
+      <h3>Scaffold · Fly Sprite <span id="s-badge" class="badge wait">…</span></h3>
+      <dl id="s-main"></dl>
+      <h4>Egress allowlist (set outside the Sprite)</h4><dl id="s-egress"></dl>
+      <h4>Tap (witness record of model traffic)</h4><dl id="s-tap"></dl>
+      <h4>Files on the Sprite (sha256)</h4><dl id="s-files"></dl>
+      <h4>Machine</h4><dl id="s-machine"></dl>
+      <details class="check"><summary>check it yourself</summary><pre id="s-check"></pre></details>
+    </section>
+
+    <section>
+      <h3>Tinfoil inference · checked on the logger <span id="v-badge" class="badge wait">…</span>
+        <span class="r"><button id="reverify">Refresh</button></span></h3>
+      <dl id="ver"></dl>
+      <h4>Model gateway + tinfoil-proxy (on the logger)</h4><dl id="proxy"></dl>
+      <p class="note">The Sprite can't reach Tinfoil (egress allowlist) and holds no Tinfoil key. The logger runs tinfoil-proxy and Tinfoil's SDK verifier and publishes the result in /v1/info; this panel shows that. Check it yourself from your Mac with the commands below.</p>
+      <details class="check"><summary>tinfoil-proxy log (on the logger)</summary><pre id="log"></pre></details>
+      <details class="check"><summary>check it yourself</summary><pre id="v-check"></pre></details>
+    </section>
+
+    <section>
+      <h3>Logger · Fly Machine <span id="l-badge" class="badge wait">…</span></h3>
+      <dl id="l-main"></dl>
+      <h4>Browser verification</h4><dl id="l-ver"></dl>
+      <h4>Pinned keys (first seen in this browser)</h4><dl id="l-pins"></dl>
+      <p class="note">This browser recomputes every entry's hash, checks the chain, checks both signatures with WebCrypto, and remembers heads it has seen so a rewritten history shows up as a mismatch.</p>
+      <details class="check"><summary>check it yourself</summary><pre id="l-check"></pre></details>
+    </section>
+
+    <section>
+      <h3>GPU server · via logger SSH gateway <span id="g-badge" class="badge wait">…</span></h3>
+      <dl id="g-main"></dl>
+      <h4>Last command</h4><dl id="g-last"></dl>
+      <p class="note">The agent runs <b>ssh gpu 'cmd'</b>. It only has a key for the gateway; the gateway holds the only key the GPU server accepts, logs each command before running it, then logs stdin/stdout/stderr and exit code. Shells, PTYs, scp/sftp and port forwarding are refused.</p>
+      <details class="check"><summary>check it yourself</summary><pre id="g-check"></pre></details>
+    </section>
+    <p class="note">Tinfoil status: <a href="https://status.tinfoil.sh" target="_blank">status.tinfoil.sh</a></p>
+  </aside>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "—").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const short = h => h ? h.slice(0, 16) + "…" : "—";
+const gb = b => (b / 1e9).toFixed(1) + " GB";
+const usd = x => x == null ? "—" : "$" + Number(x).toFixed(4);
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+function dl(el, rows) { el.innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join(""); }
+function badge(el, cls, text) { el.className = "badge " + cls; el.textContent = text; }
+
+// ---- tabs
+function tab(which) {
+  for (const t of ["map", "term", "log"]) { if (!$(t + "pane")) continue; $(t + "pane").hidden = which !== t; $("t-" + t).classList.toggle("on", which === t); }
+  if ($("tabhint")) $("tabhint").hidden = which !== "term";
+}
+$("t-map").onclick = () => tab("map");
+$("t-term").onclick = () => tab("term");
+$("t-log").onclick = () => tab("log");
+
+// ---- crypto helpers (WebCrypto; no server involved)
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+const unhex = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const enc = new TextEncoder();
+function canon(obj) {  // must match the logger: sorted keys, no whitespace; records hold only strings and ints
+  return "{" + Object.keys(obj).sort().map(k => JSON.stringify(k) + ":" + JSON.stringify(obj[k])).join(",") + "}";
+}
+const keyCache = {};
+async function edKey(b64) {
+  return keyCache[b64] ??= crypto.subtle.importKey("raw", unb64(b64), { name: "Ed25519" }, false, ["verify"]);
+}
+async function edVerify(b64pub, sigB64, data) {
+  return crypto.subtle.verify({ name: "Ed25519" }, await edKey(b64pub), unb64(sigB64), data);
+}
+async function fingerprint(b64) { return hex(await crypto.subtle.digest("SHA-256", unb64(b64))).slice(0, 16); }
+
+// ---- logger state
+let S = null;           // latest /api/status
+let L = { info: null, entries: [], results: [], verifiedTo: 0, lastHash: "0".repeat(64), error: null, pinIssue: null };
+
+// View-only link (/view/<secret>/): no read token in the browser; logger requests go through the Sprite's
+// read-only proxy. Entries are still verified here, so the proxy can withhold entries but not alter them undetected.
+const VIEW = location.pathname.startsWith("/view/");
+const BASE = VIEW ? location.pathname.replace(/[^/]*$/, "") : "/";
+async function loggerFetch(path, auth) {
+  const t = S.tap;
+  const r = VIEW ? await fetch(BASE + "api/logger" + path) : await fetch(t.logger_url.replace(/\/$/, "") + path,
+    { headers: auth ? { Authorization: "Bearer " + t.read_token } : {} });
+  if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+  return r.json();
+}
+
+async function checkPins(info) {
+  const pins = store.get("logger-pins", null);
+  const now = { logger: info.logger_pubkey, clients: info.clients, first_seen: new Date().toISOString() };
+  if (!pins) { store.set("logger-pins", now); return null; }
+  const issues = [];
+  if (pins.logger !== info.logger_pubkey) issues.push("logger key changed");
+  for (const [n, k] of Object.entries(pins.clients || {})) if (info.clients[n] && info.clients[n] !== k) issues.push(`client ${n} key changed`);
+  const added = Object.keys(info.clients).filter(n => !(pins.clients || {})[n]);
+  if (added.length && !issues.length) { pins.clients = { ...pins.clients, ...Object.fromEntries(added.map(n => [n, info.clients[n]])) }; store.set("logger-pins", pins); }
+  return issues.length ? issues.join("; ") : null;
+}
+
+async function verifyEntry(e, prevHash, pins, lastCseq) {
+  const problems = [];
+  const record = { seq: e.seq, received_at: e.received_at, client: e.client, payload: e.payload, client_sig: e.client_sig, prev: e.prev };
+  const h = hex(await crypto.subtle.digest("SHA-256", enc.encode(canon(record))));
+  if (h !== e.hash) problems.push("hash mismatch");
+  if (e.prev !== prevHash) problems.push("broken chain");
+  if (!(await edVerify(pins.logger, e.logger_sig, unhex(e.hash)))) problems.push("bad logger sig");
+  const ck = pins.clients[e.client];
+  if (!ck) problems.push("unknown client key");
+  else if (!(await edVerify(ck, e.client_sig, enc.encode(e.payload)))) problems.push("bad client sig");
+  let p = {};
+  try { p = JSON.parse(e.payload); } catch { problems.push("payload not JSON"); }
+  if (lastCseq[e.client] != null && !(p.client_seq > lastCseq[e.client])) problems.push("client_seq not increasing");
+  lastCseq[e.client] = p.client_seq;
+  return { ok: !problems.length, problems, payload: p };
+}
+
+let syncing = null;
+function syncLogger(full) {
+  if (syncing) return full ? syncing.then(() => syncLogger(true)) : syncing;
+  syncing = doSync(full).finally(() => { syncing = null; });
+  return syncing;
+}
+async function doSync(full) {
+  if (!S?.tap?.logger_url || (!VIEW && !S.tap.read_token)) { L.error = "logger not configured on this Sprite"; return renderLogger(); }
+  try {
+    L.info = await loggerFetch("/v1/info");
+    // a new log ID means the operator archived the old chain and started a new one: not tampering, but worth saying
+    const lastId = store.get("logger-log-id", null);
+    if (lastId && lastId !== L.info.log_id) { L.newLog = { from: lastId, to: L.info.log_id }; full = true; }
+    store.set("logger-log-id", L.info.log_id);
+    if (L.logId && L.logId !== L.info.log_id) full = true;
+    L.logId = L.info.log_id;
+    L.pinIssue = await checkPins(L.info);
+    const pins = store.get("logger-pins", null);
+    if (full) { L.entries = []; L.results = []; L.verifiedTo = 0; L.lastHash = "0".repeat(64); L.lastCseq = {}; }
+    L.lastCseq ??= {};
+    while (true) {
+      const page = await loggerFetch(`/v1/entries?after=${L.entries.length}&limit=500`, true);
+      if (!page.entries.length) break;
+      for (const e of page.entries) {
+        const res = await verifyEntry(e, L.lastHash, pins, L.lastCseq);
+        L.entries.push(e); L.results.push(res); L.lastHash = e.hash; L.verifiedTo = e.seq;
+      }
+      if (page.entries.length < 500) break;
+    }
+    // continuity: a new log's first entry must point back to the old log's final entry; compare with what we saw
+    if (L.newLog && L.entries[0]) {
+      const p0 = L.results[0].payload, d0 = p0.data || {};
+      const oldHeads = store.get("logger-heads:" + L.newLog.from, {});
+      const seen = Object.keys(oldHeads).map(Number).sort((a, b) => b - a)[0];
+      if (p0.kind !== "log_opened" || d0.prev_log_id !== L.newLog.from) L.continuity = { ok: false, text: "new log does not start with a link to the previous log" };
+      else if (seen == null) L.continuity = { ok: true, text: `links to ${d0.prev_log_id} #${d0.prev_head.seq} (this browser hadn't recorded the old log)` };
+      else if (seen === d0.prev_head.seq) L.continuity = oldHeads[seen] === d0.prev_head.hash ? { ok: true, text: `links to the last entry you saw (#${seen})` } : { ok: false, text: `old log's final entry #${seen} differs from what you saw` };
+      else if (seen === d0.prev_head.seq - 1) L.continuity = { ok: true, text: `links to ${d0.prev_log_id} #${d0.prev_head.seq}, one entry (the session-end request) after the last you saw` };
+      else L.continuity = { ok: seen < d0.prev_head.seq, text: `old log ended at #${d0.prev_head.seq}; you last saw #${seen}` };
+    }
+    // tap vs gateway: each model call should appear twice (the Sprite's witness record and the gateway's own), identical
+    {
+      const tapCalls = [], gwCalls = [];
+      L.entries.forEach((e, i) => { const p = L.results[i].payload; if (p.kind !== "model_call") return; (e.client === "gateway" ? gwCalls : tapCalls).push(p.data); });
+      const used = new Set(); let match = 0, differ = 0, gwOnly = 0;
+      for (const g of gwCalls) {
+        const k = tapCalls.findIndex((t, i) => !used.has(i) && t.request_body === g.request_body);
+        if (k < 0) { gwOnly++; continue; }
+        used.add(k);
+        (tapCalls[k].response_body === g.response_body && tapCalls[k].status === g.status) ? match++ : differ++;
+      }
+      L.agree = { match, differ, gwOnly, tapOnly: tapCalls.length - used.size };
+    }
+    // witness: heads this browser saw before must still be in the chain with the same hash
+    const headsKey = "logger-heads:" + L.info.log_id;
+    const heads = store.get(headsKey, {});
+    const byseq = Object.fromEntries(L.entries.map(e => [e.seq, e.hash]));
+    L.witness = Object.entries(heads).filter(([s, h]) => byseq[s] && byseq[s] !== h).map(([s]) => s);
+    L.witnessCount = Object.keys(heads).length;
+    if (L.entries.length) { heads[L.verifiedTo] = L.lastHash; store.set(headsKey, heads); }
+    L.error = null;
+  } catch (e) {
+    L.error = String(e.message || e);
+    if (!window.crypto?.subtle) L.error += " (WebCrypto unavailable)";
+  }
+  renderLogger();
+}
+
+function summarize(p) {
+  const d = p.data || {};
+  if (p.kind === "ssh_exec") return `ssh ${esc(d.client)} → ${esc(d.target)}: <b>${esc(d.command)}</b>`;
+  if (p.kind === "ssh_result") return `↳ #${esc(d.exec_seq)} exit ${esc(d.exit_status)} · ${esc(d.duration_ms)}ms · ${esc((d.stdout || d.stderr || d.error || "").trim().split("\n")[0].slice(0, 70))}`;
+  if (p.kind === "rotate") return `<b>session end</b> → new session ${esc(d.session)}`;
+  if (p.kind === "log_opened") return `<b>log opened</b> · session ${esc(d.session)} · continues ${esc(d.prev_log_id)} at #${esc(d.prev_head?.seq)}`;
+  if (p.kind === "ssh_refused") return `refused ${esc(d.client)} → ${esc(d.target)}: ${esc(d.reason)}`;
+  if (p.kind !== "model_call") return esc(p.kind);
+  const via = d.via === "model_gateway" ? "[gateway] " : "[tap witness] ";
+  let model = "", last = "";
+  try { const req = JSON.parse(d.request_body || "{}"); model = req.model || ""; const m = (req.messages || []).filter(x => x.role === "user").pop(); last = typeof m?.content === "string" ? m.content : JSON.stringify(m?.content ?? ""); } catch {}
+  return `${via}${esc(d.method)} ${esc(d.path)} → ${esc(d.status)} · ${esc(model)} · ${esc(d.duration_ms)}ms · ${esc(last.slice(0, 60))}`;
+}
+
+function responseText(body) {  // join streamed SSE deltas, or read a plain JSON response
+  let text = "", reasoning = "", tools = [];
+  const take = o => { const c = o.choices?.[0]; const d = c?.delta || c?.message || {};
+    text += d.content || ""; reasoning += d.reasoning || d.reasoning_content || "";
+    (d.tool_calls || []).forEach(t => t.function?.name && tools.push(t.function.name)); };
+  if (body.includes("data:")) for (const line of body.split("\n")) { const s = line.trim(); if (s.startsWith("data:") && !s.includes("[DONE]")) try { take(JSON.parse(s.slice(5))); } catch {} }
+  else try { take(JSON.parse(body)); } catch { text = body; }
+  return { text, reasoning, tools };
+}
+
+function detail(e, res) {
+  const d = res.payload.data || {};
+  if (res.payload.kind?.startsWith("ssh_")) return `<div class="detail">
+    <dl><dt>verified</dt><dd>${res.ok ? "yes: hash, chain, logger sig, gateway sig" : esc(res.problems.join(", "))}</dd>
+    <dt>hash</dt><dd>${esc(e.hash)}</dd><dt>prev</dt><dd>${esc(e.prev)}</dd></dl>
+    ${d.command ? `<h4>command</h4><pre>${esc(d.command)}</pre>` : ""}
+    ${d.upstream ? `<h4>upstream</h4><pre>${esc(d.upstream)}</pre>` : ""}
+    ${d.stdin ? `<h4>stdin</h4><pre>${esc(d.stdin)}</pre>` : ""}
+    ${"stdout" in d ? `<h4>stdout</h4><pre>${esc(d.stdout)}</pre>` : ""}
+    ${d.stderr ? `<h4>stderr</h4><pre>${esc(d.stderr)}</pre>` : ""}
+    ${d.error ? `<h4>error</h4><pre>${esc(d.error)}</pre>` : ""}
+    <details class="check"><summary>raw entry</summary><pre>${esc(JSON.stringify({ ...e, payload: res.payload }, null, 1))}</pre></details></div>`;
+  let msgs = "";
+  try { msgs = (JSON.parse(d.request_body || "{}").messages || []).slice(-4).map(m => `[${m.role}] ${typeof m.content === "string" ? m.content : JSON.stringify(m.content)}`).join("\n\n"); } catch {}
+  const r = responseText(d.response_body || "");
+  return `<div class="detail">
+    <dl><dt>verified</dt><dd>${res.ok ? "yes: hash, chain, logger sig, client sig" : esc(res.problems.join(", "))}</dd>
+    <dt>hash</dt><dd>${esc(e.hash)}</dd><dt>prev</dt><dd>${esc(e.prev)}</dd>
+    <dt>client ts</dt><dd>${esc(res.payload.ts)} (client_seq ${esc(res.payload.client_seq)})</dd>
+    <dt>enclave</dt><dd>${esc(d.enclave)}</dd></dl>
+    ${msgs ? `<h4>request (last messages)</h4><pre>${esc(msgs)}</pre>` : ""}
+    ${r.reasoning ? `<h4>reasoning</h4><pre>${esc(r.reasoning)}</pre>` : ""}
+    ${r.tools.length ? `<h4>tool calls</h4><pre>${esc(r.tools.join(", "))}</pre>` : ""}
+    ${d.path ? `<h4>response</h4><pre>${esc(r.text)}</pre>` : ""}
+    <details class="check"><summary>raw entry</summary><pre>${esc(JSON.stringify({ ...e, payload: res.payload }, null, 1))}</pre></details>
+  </div>`;
+}
+
+let open = new Set();
+function renderLogger() {
+  const i = L.info, bad = L.results.filter(r => !r.ok).length;
+  const ok = !L.error && !L.pinIssue && !bad && !(L.witness || []).length && !(L.continuity && !L.continuity.ok);
+  badge($("l-badge"), L.error ? "bad" : ok ? "ok" : "bad", L.error ? "UNREACHABLE" : ok ? `VERIFIED ${L.entries.length}` : "PROBLEM");
+  badge($("b-logger"), L.error ? "bad" : ok ? "ok" : "bad", L.error ? "logger down" : ok ? `logger ✓ ${L.entries.length}` : "logger ✗");
+  badge($("lv-badge"), ok ? "ok" : "bad", ok ? `all ${L.entries.length} entries verified` : L.error ? "cannot verify" : `${bad} bad entries`);
+  $("lv-summary").textContent = i ? `head #${i.head.seq} ${short(i.head.hash)} · witness: ${L.witnessCount || 0} heads remembered` : "";
+  dl($("l-main"), i ? [
+    ["url", esc(S.tap.logger_url)], ["image", esc(i.image_ref)], ["machine", `${esc(i.machine_id)} · ${esc(i.region)}`],
+    ["source sha256", Object.entries(i.source_sha256 || {}).map(([f, h]) => `${esc(f)} ${esc(short(h))}`).join("<br>")], ["started", esc(i.started_at)], ["head", `#${i.head.seq} ${esc(short(i.head.hash))}`],
+    ["clients", esc(Object.keys(i.clients).join(", "))],
+  ] : [["error", esc(L.error)]]);
+  dl($("l-ver"), [
+    ["entries", `${L.entries.length} fetched, ${L.entries.length - bad} ok, ${bad} bad`],
+    ["checks", "sha256(canonical record) = hash · prev = previous hash · logger ed25519 sig · client ed25519 sig · client_seq increasing"],
+    ["witness", (L.witness || []).length ? `<b>MISMATCH at seq ${esc(L.witness.join(", "))}: history changed</b>` : `ok (${L.witnessCount || 0} earlier heads still match)`],
+    ["keys", L.pinIssue ? `<b>${esc(L.pinIssue)}</b>` : "match pins"],
+    ["log id", esc(L.info?.log_id) + (L.newLog ? ` (new log; previous ${esc(L.newLog.from)} archived)` : "")],
+    ...(L.agree ? [["tap vs gateway", `${L.agree.match} match · ${L.agree.differ ? "<b>" + L.agree.differ + " differ</b>" : "0 differ"} · ${L.agree.gwOnly} gateway-only · ${L.agree.tapOnly} tap-only`]] : []),
+    ...(L.continuity ? [["continuity", (L.continuity.ok ? "ok: " : "<b>PROBLEM: </b>") + esc(L.continuity.text)]] : []),
+    ...(L.info?.archives?.length ? [["archived logs", esc(L.info.archives.join(", "))]] : []),
+    ...(L.error ? [["error", esc(L.error)]] : []),
+  ]);
+  const pins = store.get("logger-pins", null);
+  Promise.all([pins?.logger, ...Object.values(pins?.clients || {})].filter(Boolean).map(fingerprint)).then(fps => {
+    if (!pins) return dl($("l-pins"), [["none", "—"]]);
+    const names = [pins.logger && "logger", ...Object.keys(pins.clients || {})].filter(Boolean);
+    dl($("l-pins"), [...names.map((n, k) => [n, `${esc(fps[k])} (sha256 of pubkey)`]), ["since", esc(pins.first_seen)]]);
+  });
+  renderGpu();
+  updateMap();
+  const rows = L.entries.map((e, k) => [e, L.results[k]]).reverse().slice(0, 300);
+  $("entries").innerHTML = rows.map(([e, r]) =>
+    `<tr class="entry" data-seq="${e.seq}"><td>${e.seq}</td><td>${esc(e.received_at.slice(11, 19))}</td><td>${esc(e.client)}</td><td>${esc(r.payload.kind)}</td><td>${summarize(r.payload)}</td><td>${r.ok ? "✓" : "✗ " + esc(r.problems.join(", "))}</td></tr>`
+    + (open.has(e.seq) ? `<tr><td colspan="6">${detail(e, r)}</td></tr>` : "")).join("") || `<tr><td colspan="6">${L.error ? esc(L.error) : "no entries yet"}</td></tr>`;
+  const u = S?.tap?.logger_url || "https://<logger>";
+  const app = /\.fly\.dev$/.test(new URL(u, location.href).hostname) ? new URL(u).hostname.split(".")[0] : "<logger-app>";
+  $("l-check").textContent =
+`# What image is the logger running? (compare with image above)
+fly status -a ${app}
+fly image show -a ${app}
+
+# Is the running code the code in the repo? (compare with source sha256 above)
+shasum -a 256 logger/app.py logger/ssh_gateway.py logger/model_gateway.py
+
+# Public head and keys, straight from the logger
+curl -s ${u}/v1/info | jq
+
+# The logger never sees the scaffold's private key; compare its pubkey fingerprint:
+sprite -s tinfoil-scaffold exec -- curl -s 127.0.0.1:3300/_tap/status | jq -r .pubkey`;
+}
+function renderGpu() {
+  const g = L.info?.ssh;
+  if (!g) { badge($("g-badge"), "bad", "NO GATEWAY"); badge($("b-gpu"), "bad", "gpu ✗"); return; }
+  const pairs = L.entries.map((e, k) => [e, L.results[k]]).filter(([, r]) => r.payload.kind?.startsWith("ssh_"));
+  const lastExec = [...pairs].reverse().find(([, r]) => r.payload.kind === "ssh_exec");
+  const lastRes = lastExec && pairs.find(([, r]) => r.payload.kind === "ssh_result" && r.payload.data.exec_seq === lastExec[0].seq);
+  // badge = the logger's live probe (connect + pinned host key + auth, no command), not the last logged command
+  const t = gpuTarget(), probe = t?.probe, hw = gpuHardware();
+  badge($("g-badge"), !probe ? "wait" : probe.ok ? "ok" : "bad", !probe ? "NO PROBE YET" : probe.ok ? "REACHABLE NOW" : "UNREACHABLE");
+  badge($("b-gpu"), !probe ? "wait" : probe.ok ? "ok" : "bad", !probe ? "GPU: checking…" : probe.ok ? "GPU up" : "GPU DOWN" + (probe.failing_since ? " since " + probe.failing_since.slice(11, 16) + " UTC" : ""));
+  dl($("g-main"), [
+    ...(t ? [["gpu target", `${esc(t.user)}@${esc(t.host)}:${esc(t.port)} · ${esc(t.network)}`],
+      ["declared", t.label ? esc(t.label) + " <i>(operator's description, not checked)</i>" : "—"],
+      ["host key", esc(t.hostkey_sha256 || "NOT PINNED")],
+      ["live probe", esc(probeText(probe)) + ` <i>(every ${esc(g.probe_interval_s)}s, runs nothing)</i>`],
+      ["hardware", hw ? `${esc(hw.name)} <i>(nvidia-smi output in log #${hw.seq}, ${esc(ago(hw.at))})</i>` : "no nvidia-smi output logged for this target yet"]] : []),
+    ["gateway", `${esc(new URL(S.tap.logger_url).host)}:${esc(g.port)}`],
+    ["targets", Object.entries(g.targets).map(([n, t]) => `${esc(n)} → ${esc(t.user)}@${esc(t.host)}:${esc(t.port)} ${t.hostkey_pinned ? "(host key pinned)" : "<b>(host key NOT pinned)</b>"}`).join("<br>")],
+    ["agent keys", esc(Object.keys(g.clients).join(", "))],
+    ["gateway host key", esc(g.host_pubkey.split(" ")[1].slice(-20))],
+    ["upstream key", esc(g.upstream_pubkey.split(" ")[1].slice(-20)) + " (only key the GPU accepts)"],
+    ["commands logged", String(pairs.filter(([, r]) => r.payload.kind === "ssh_exec").length) + ` · ${pairs.filter(([, r]) => r.payload.kind === "ssh_refused").length} refused`],
+  ]);
+  dl($("g-last"), lastExec ? [
+    ["#" + lastExec[0].seq, esc(lastExec[1].payload.data.command)],
+    ["result", lastRes ? `exit ${esc(lastRes[1].payload.data.exit_status)} · ${esc(lastRes[1].payload.data.duration_ms)}ms` : "running / no result yet"],
+    ["at", esc(lastExec[0].received_at.replace("T", " ").slice(0, 19))],
+  ] : [["none", "—"]]);
+  const fly = t?.network === "fly-private";
+  $("g-check").textContent =
+`# Run a command yourself through the gateway (from the Sprite terminal); it will be logged
+ssh gpu nvidia-smi -L
+
+# The agent's SSH config: it points at the gateway, not the GPU
+sprite -s tinfoil-scaffold exec -- cat ~/.ssh/config
+
+# Where the gateway connects, its pinned host key and the live probe, straight from the logger
+curl -s ${S.tap.logger_url}/v1/info | jq .ssh.targets
+` + (!t ? "" : fly ? `
+# A Fly private-network GPU has no public IPs
+fly ips list -a <gpu app>
+` : `
+# From your Mac: the host key the pod presents, compare with the pinned ${t.hostkey_sha256}
+ssh-keyscan -t ed25519 -p ${t.port} ${t.host} 2>/dev/null | ssh-keygen -lf -
+# Independently, in the provider's console: pod -> Logs -> the LUCID_HOSTKEY line printed at boot
+`) + `
+# The only key the GPU accepts should be the gateway's upstream key (logged)
+ssh gpu cat /root/.ssh/authorized_keys
+curl -s ${S.tap.logger_url}/v1/info | jq -r .ssh.upstream_pubkey` + (fly ? `
+
+# Caveat: fly ssh console reaches the GPU machine directly, bypassing the gateway.` : `
+
+# Caveats: the SSH port is open to the internet (key-only), and the provider's console can reach the pod directly.`);
+}
+
+$("entries").onclick = ev => { const tr = ev.target.closest("tr.entry"); if (!tr) return; const s = +tr.dataset.seq; open.has(s) ? open.delete(s) : open.add(s); renderLogger(); };
+$("lv-full").onclick = () => syncLogger(true);
+
+// ---- scaffold + tinfoil panels (from this Sprite's /api/status)
+function render(s) {
+  S = s;
+  const allUp = s.services.every(x => x.status === "running");
+  const t = s.tap, ts = t.status || {}, eg = s.egress || {};
+  const tapped = (s.opencode_base_url || "").includes(":3300");
+  const sOk = allUp && !ts.error && tapped && !ts.spooled && eg.active && !s.tinfoil_key_on_sprite;
+  badge($("s-badge"), sOk ? "ok" : "warn", sOk ? "OK" : "CHECK");
+  badge($("b-scaffold"), sOk ? "ok" : "warn", sOk ? "scaffold ✓" : "scaffold !");
+  dl($("s-main"), [
+    ["services", s.services.map(x => `${esc(x.name)} ${x.status === "running" ? "✓" : "✗ " + esc(x.status)}`).join(" · ")],
+    ["opencode →", `${esc(s.opencode_base_url)} ${tapped ? "(tap → logger model gateway)" : "<b>(bypasses the tap)</b>"}`],
+    ["Tinfoil key here", s.tinfoil_key_on_sprite ? "<b>YES: should be removed</b>" : "no (only a model token for the logger)"],
+    ["session", esc(s.session?.id) + " · " + esc(s.session?.dir)],
+  ]);
+  dl($("s-egress"), eg.active ? eg.rules.map(r => [r.action || "include", esc(r.domain || r.include)]).concat([["else", "DNS refused"], ["evidence", esc(eg.source) + ": " + Object.entries(eg.observed?.others_resolve || {}).map(([h, ok]) => `${h} ${ok ? "RESOLVES" : "refused"}`).join(", ")]]) : [["status", "<b>not active: the Sprite can reach anything</b>"], ["evidence", esc(JSON.stringify(eg.observed || {}))]]);
+  dl($("s-tap"), ts.error ? [["error", esc(ts.error)]] : [
+    ["client", esc(ts.client)], ["pubkey", esc(short(ts.pubkey))], ["logger", esc(ts.logger_url)],
+    ["sent", esc(ts.sent)], ["spooled", ts.spooled ? `<b>${esc(ts.spooled)} waiting</b>` : "0"],
+    ["last error", esc(ts.last_error)],
+  ]);
+  dl($("s-files"), Object.entries(s.files).map(([f, h]) => [f, esc(short(h))]));
+  const m = s.machine;
+  dl($("s-machine"), [
+    ["load", esc(m.load.join(" ")) + ` (${m.cpus} cpu)`], ["memory", `${gb(m.mem_used)} / ${gb(m.mem_total)}`],
+    ["disk", `${gb(m.disk_used)} / ${gb(m.disk_total)}`], ["uptime", `${Math.floor(m.uptime_s / 3600)}h ${Math.floor(m.uptime_s % 3600 / 60)}m`],
+  ]);
+  $("s-check").textContent =
+`# Hashes of what's on the Sprite vs the repo on your Mac
+sprite -s tinfoil-scaffold exec -- sha256sum ~/tap/tap.py ~/dashboard/server.py ~/dashboard/index.html ~/.local/bin/agent
+shasum -a 256 scaffold/tap/tap.py scaffold/dashboard/server.py scaffold/dashboard/index.html scaffold/bin/agent
+
+# The egress allowlist, as the Sprites API has it (set from outside; the Sprite can't change it)
+sprite api /v1/sprites/tinfoil-scaffold/policy/network
+# ...and try to go around it from inside the Sprite (should fail)
+sprite -s tinfoil-scaffold exec -- curl -sm5 https://inference.tinfoil.sh/ || echo blocked
+
+# No Tinfoil key on the Sprite
+sprite -s tinfoil-scaffold exec -- ls ~/.config/tinfoil/
+
+# Note: the Sprite (and Fly) can change any of this; hashes show what it reports now.`;
+
+  const v = s.verification, mg = s.model_gateway || {};
+  const vOk = v && v.ok;
+  badge($("v-badge"), vOk ? "ok" : "bad", vOk ? "VERIFIED" : "NOT VERIFIED");
+  const up = mg.proxy?.running && mg.key_configured;
+  badge($("b-tinfoil"), vOk && up ? "ok" : "bad", vOk && up ? "tinfoil ✓" : "tinfoil ✗");
+  dl($("ver"), v ? [
+    ...Object.entries(v.steps || {}).map(([k, st]) => [k, esc(st)]),
+    ["release", `<a target="_blank" href="https://github.com/${esc(v.repo)}/releases/tag/${esc(v.release)}">${esc(v.repo)} ${esc(v.release)}</a>`],
+    ["host", esc(v.host)], ["platform", esc(v.platform)],
+    ["measurement", esc(short(v.measurement))], ["tls key", esc(short(v.tls_key))], ["hpke key", esc(short(v.hpke_key))],
+    ["verifier", "tinfoil " + esc(v.verifier) + " (on the logger)"], ["checked", esc((v.at || "").replace("T", " ").slice(0, 19) + " UTC")],
+  ] : [["error", esc(s.verify_error || "not run yet")]]);
+  dl($("proxy"), [
+    ["tinfoil-proxy", mg.proxy?.running ? `running · enclave ${esc(mg.proxy.enclave)} · restarts ${esc(mg.proxy.restarts)}` : "<b>not running</b>"],
+    ["Tinfoil key", mg.key_configured ? "configured (logger secret)" : "<b>missing</b>"],
+    ["clients", esc((mg.clients || []).join(", "))],
+    ["logger reach", s.logger_reach?.ok ? `${esc(s.logger_reach.ms)} ms` : esc(s.logger_reach?.error)],
+  ]);
+  $("log").textContent = (mg.proxy_log || []).join("\n");
+  $("v-check").textContent = v ?
+`# What the logger published (anyone can read this)
+curl -s ${s.tap?.logger_url}/v1/info | jq .model
+
+# The release the verifier matched
+open https://github.com/${v.repo}/releases/tag/${v.release}
+
+# Run the same verification yourself on your Mac, independent of the Sprite and the logger
+uv run --with tinfoil python -c "from tinfoil import TinfoilAI; d=TinfoilAI(api_key='x').get_verification_document().to_dict(); print(d['securityVerified'], d['releaseTag'], d['enclaveFingerprint'][:16], d['tlsPublicKey'][:16])"
+
+# Compare: measurement ${short(v.measurement)} · tls key ${short(v.tls_key)}` : "";
+  $("updated").textContent = "updated " + new Date().toLocaleTimeString();
+  $("sess").textContent = "session " + (s.session?.id || "(none yet)");
+  updateMap();
+}
+
+// ---- system map: every real connection, grouped by where it runs. Update this when the wiring changes.
+const GROUPS = [
+  { id: "sprite", x: 250, y: 30, w: 560, h: 330, label: "Fly Sprite · tinfoil-scaffold", sub: "mutable VM · holds no Tinfoil key", inner: true },
+  { id: "logger", x: 520, y: 430, w: 560, h: 340, label: "Logger · Fly Machine", sub: "fixed image · holds Tinfoil key, gateway keys, log" },
+  { id: "tinfoil", x: 1120, y: 30, w: 260, h: 290, label: "Tinfoil", sub: "SEV-SNP / TDX enclaves", inner: true },
+  { id: "gpu", x: 1120, y: 640, w: 260, h: 130, label: "GPU server", sub: "waiting for logger…" },
+  { id: "outside", x: 20, y: 30, w: 200, h: 720, label: "Outside", sub: "you and your machine", inner: true },
+];
+const NODES = {
+  you:        { x: 30, y: 80, w: 180, h: 52, t1: "You (browser)", t2: "verifies the log itself" },
+  spriteedge: { x: 30, y: 190, w: 180, h: 52, t1: "Sprites edge", t2: "public URL · TLS ends here" },
+  mac:        { x: 30, y: 560, w: 180, h: 52, t1: "Your Mac", t2: "fly · sprite · op CLIs" },
+  onepw:      { x: 30, y: 680, w: 180, h: 52, t1: "1Password", t2: "keys + passwords" },
+  caddy:      { x: 270, y: 80, w: 150, h: 52, t1: "Caddy :8080", t2: "shared password gate" },
+  ttyd:       { x: 270, y: 170, w: 150, h: 52, t1: "terminal", t2: "ttyd + tmux 'main'" },
+  dash:       { x: 270, y: 280, w: 150, h: 52, t1: "dashboard :8000", t2: "status · New session" },
+  opencode:   { x: 470, y: 170, w: 150, h: 52, t1: "OpenCode agent", t2: "~/sessions/<id>" },
+  tap:        { x: 650, y: 170, w: 140, h: 52, t1: "tap :3300", t2: "witness record" },
+  flyedge:    { x: 250, y: 470, w: 200, h: 56, t1: "Fly edge (fly-proxy)", t2: ":443 TLS ends · :2222 passthrough" },
+  api:        { x: 540, y: 500, w: 160, h: 52, t1: "logger API", t2: "read · append · rotate" },
+  mgw:        { x: 730, y: 500, w: 150, h: 52, t1: "model gateway", t2: "/v1/model · adds key" },
+  lproxy:     { x: 910, y: 500, w: 150, h: 52, t1: "tinfoil-proxy", t2: "verifies + pins" },
+  sdkv:       { x: 910, y: 610, w: 150, h: 52, t1: "SDK verifier", t2: "publishes result" },
+  store:      { x: 540, y: 700, w: 160, h: 52, t1: "log store", t2: "/data · hash chain" },
+  sshgw:      { x: 730, y: 700, w: 150, h: 52, t1: "SSH gateway :2222", t2: "commands only" },
+  router:     { x: 1140, y: 80, w: 220, h: 52, t1: "router enclave", t2: "confidential-model-router" },
+  model:      { x: 1140, y: 220, w: 220, h: 52, t1: "gpt-oss-120b enclave", t2: "inference" },
+  attest:     { x: 1140, y: 360, w: 220, h: 52, t1: "GitHub + Sigstore", t2: "published measurements" },
+  gpu:        { x: 1140, y: 700, w: 220, h: 52, t1: "sshd", t2: "…" },
+  control:    { x: 250, y: 820, w: 560, h: 44, t1: "Fly / Sprites control plane (API)", t2: "deploys · secrets · exec · policy · fly ssh" },
+};
+// Sprite egress allowlist, drawn as a band every outbound Sprite connection crosses
+const EGRESS = { x: 260, y: 368, w: 540, h: 36 };
+// layer, endpoints, route (pts), label position [x, y, anchor]
+const EDGES = [
+  // agent traffic
+  { id: "a1", layer: "traffic", a: "opencode", b: "tap", pts: [[620, 196], [650, 196]], lab: [635, 160, "middle"], label: "model calls", info: "OpenCode sends OpenAI-style requests to the tap on localhost, with its model token (not a Tinfoil key). Replies stream back the same way." },
+  { id: "a2", layer: "traffic", a: "tap", b: "flyedge", pts: [[720, 222], [720, 418], [420, 418], [420, 470]], lab: [728, 280, "start"], label: "HTTPS :443 · model token", info: "The tap forwards to https://&lt;logger&gt;/v1/model/…. This is the only domain the Sprite's egress allowlist permits." },
+  { id: "a3", layer: "traffic", a: "flyedge", b: "mgw", pts: [[450, 488], [790, 488], [790, 500]], lab: [610, 482, "middle"], label: "HTTP (decrypted at edge)", info: "Fly's edge proxy terminates TLS for the logger's HTTP service and forwards to the machine. Fly can read this hop in plaintext." },
+  { id: "a4", layer: "traffic", a: "mgw", b: "lproxy", pts: [[880, 526], [910, 526]], lab: [895, 492, "middle"], label: "+ key", info: "The model gateway swaps the model token for the Tinfoil API key (held only on the logger) and sends the request to tinfoil-proxy on localhost." },
+  { id: "a5", layer: "traffic", a: "lproxy", b: "router", pts: [[1000, 500], [1000, 100], [1140, 100]], lab: [992, 230, "end"], label: "pinned TLS + HPKE", info: "tinfoil-proxy sends the request to Tinfoil's router only after verifying its attestation, pinned to the attested TLS key. Nothing in between (Fly included) can read it." },
+  { id: "a6", layer: "traffic", a: "router", b: "model", pts: [[1250, 132], [1250, 220]], lab: [1258, 180, "start"], label: "attested channel", info: "The router forwards to the model enclave over a channel encrypted to that enclave's attested key. You rely on the router's attested open-source code for this hop." },
+  { id: "a7", layer: "traffic", a: "opencode", b: "flyedge", pts: [[545, 222], [545, 412], [380, 412], [380, 470]], lab: [537, 250, "end"], label: "ssh gpu 'cmd' :2222", info: "The agent's SSH client connects to the logger on port 2222 (allowed domain, over IPv6). It holds a key for the gateway only, and pins the gateway's host key." },
+  { id: "a8", layer: "traffic", a: "flyedge", b: "sshgw", pts: [[430, 526], [430, 790], [805, 790], [805, 752]], lab: [620, 784, "middle"], label: "TCP passthrough (SSH stays encrypted)", info: "For port 2222 Fly's edge only forwards TCP; the SSH session is encrypted end to end between the agent and the gateway." },
+  { id: "a9", layer: "traffic", a: "sshgw", b: "gpu", pts: [[880, 720], [1140, 720]], lab: [1010, 712, "middle"], label: "ssh · gateway key · 6PN", info: "The gateway opens its own SSH connection over Fly's private network with the only key the GPU accepts. The GPU has no public IP." },
+  // console
+  { id: "c1", layer: "console", a: "you", b: "spriteedge", pts: [[120, 132], [120, 190]], lab: [128, 164, "start"], label: "HTTPS", info: "Your browser reaches the Sprite URL. It is public; Sprites' edge terminates TLS (so Fly can read console traffic) and forwards to Caddy." },
+  { id: "c2", layer: "console", a: "spriteedge", b: "caddy", pts: [[210, 216], [235, 216], [235, 106], [270, 106]], lab: [238, 150, "start"], label: "", info: "Caddy asks for the shared team password (basic auth, user lucid) on every route before anything else." },
+  { id: "c3", layer: "console", a: "caddy", b: "ttyd", pts: [[345, 132], [345, 170]], lab: [353, 154, "start"], label: "/term", info: "Caddy forwards /term to ttyd, which attaches to tmux session 'main'. Anyone with the password gets this shell." },
+  { id: "c4", layer: "console", a: "caddy", b: "dash", pts: [[270, 122], [258, 122], [258, 306], [270, 306]], lab: [262, 250, "start"], label: "", info: "Caddy forwards / and /api/* to the dashboard server, which serves this page and its status JSON." },
+  { id: "c5", layer: "console", a: "ttyd", b: "opencode", pts: [[420, 196], [470, 196]], lab: [445, 160, "middle"], label: "tmux", info: "What you type in the Terminal tab goes into the same tmux session the agent runs in." },
+  { id: "c6", layer: "console", a: "dash", b: "tap", pts: [[420, 306], [690, 306], [690, 222]], lab: [625, 298, "middle"], label: "status · rotate", info: "The dashboard reads the tap's status and, for New session, asks it to sign the rotate request." },
+  { id: "c7", layer: "console", a: "dash", b: "flyedge", pts: [[320, 332], [320, 470]], lab: [312, 440, "end"], label: "/v1/info", info: "The dashboard reads the logger's public info (Tinfoil verification, proxy state, keys, head) through the egress allowlist." },
+  { id: "c8", layer: "console", a: "you", b: "flyedge", pts: [[30, 110], [24, 110], [24, 498], [250, 498]], lab: [30, 470, "start"], label: "read log", info: "Your browser fetches log entries straight from the logger with the read token (CORS allows only the console's origin). The Sprite isn't in this path." },
+  { id: "c9", layer: "console", a: "flyedge", b: "api", pts: [[450, 520], [540, 520]], lab: [495, 546, "middle"], label: "HTTP", info: "Fly's edge forwards API requests (info, entries, append, rotate) to the logger." },
+  { id: "c10", layer: "console", a: "dash", b: "ttyd", pts: [[300, 280], [300, 222]], lab: [292, 256, "end"], label: "tmux ctl", info: "New session kills and recreates tmux session 'main' in the new session directory." },
+  // logging
+  { id: "l1", layer: "logging", a: "tap", b: "flyedge", pts: [[734, 222], [734, 424], [434, 424], [434, 470]], lab: [742, 340, "start"], label: "witness · rotate", info: "After each exchange the tap sends its own scaffold-signed record of the request and reply to /v1/append (never the token). It also sends the signed rotate request for New session. Spools to disk if the logger is down." },
+  { id: "l2", layer: "logging", a: "mgw", b: "store", pts: [[770, 552], [770, 640], [680, 640], [680, 700]], lab: [725, 632, "middle"], label: "model_call", info: "The model gateway logs each exchange itself (gateway-signed): request body, response body, status, timing, enclave. The browser compares these with the tap's records." },
+  { id: "l3", layer: "logging", a: "sshgw", b: "store", pts: [[730, 726], [700, 726]], lab: [715, 690, "middle"], label: "ssh log", info: "ssh_exec is logged before the command runs; ssh_result (stdin, stdout, stderr, exit code) after. Refusals are logged as ssh_refused." },
+  { id: "l4", layer: "logging", a: "api", b: "store", pts: [[606, 552], [606, 700]], lab: [598, 640, "end"], label: "append · rotate", info: "The API checks the client's signature and client_seq, then chains and signs the entry. Rotate archives the chain and opens a linked one." },
+  // verification
+  { id: "v1", layer: "verify", a: "lproxy", b: "router", pts: [[1014, 500], [1014, 114], [1140, 114]], lab: [1022, 270, "start"], label: "attestation", info: "Before sending anything, tinfoil-proxy checks the router's hardware report (AMD/Intel signature), the measurement against the published release, and that the TLS/HPKE keys are bound to the report." },
+  { id: "v2", layer: "verify", a: "lproxy", b: "attest", pts: [[1060, 516], [1100, 516], [1100, 380], [1140, 380]], lab: [1104, 470, "start"], label: "digest", info: "The expected measurement comes from Tinfoil's GitHub release, whose provenance is checked against Sigstore." },
+  { id: "v3", layer: "verify", a: "sdkv", b: "attest", pts: [[1060, 636], [1112, 636], [1112, 400], [1140, 400]], lab: [1116, 560, "start"], label: "", info: "Tinfoil's Python SDK verifier runs the same checks independently every 10 minutes and publishes the result in /v1/info. That's what the Tinfoil panel shows." },
+  { id: "v4", layer: "verify", a: "sdkv", b: "router", pts: [[1060, 620], [1086, 620], [1086, 126], [1140, 126]], lab: [1090, 200, "start"], label: "", info: "The SDK verifier fetches the router's attestation report directly." },
+  { id: "v5", layer: "verify", a: "you", b: "store", pts: [[36, 132], [36, 740], [540, 740]], lab: [300, 734, "middle"], label: "your browser checks every hash + signature", info: "Your browser recomputes each hash, checks the chain links, both Ed25519 signatures, client_seq order, pinned keys, remembered heads, log continuity across sessions, and that tap and gateway records agree." },
+  { id: "v6", layer: "verify", a: "sshgw", b: "gpu", pts: [[880, 736], [1140, 736]], lab: [1010, 752, "middle"], label: "pinned host key", info: "The gateway only connects if the GPU presents its pinned host key." },
+  // operator / control plane
+  { id: "o1", layer: "operator", a: "onepw", b: "mac", pts: [[120, 680], [120, 612]], lab: [128, 650, "start"], label: "op read", info: "Keys and passwords come out of 1Password on your Mac, piped straight into Fly secrets or Sprite files." },
+  { id: "o2", layer: "operator", a: "mac", b: "control", pts: [[210, 586], [232, 586], [232, 842], [250, 842]], lab: [236, 700, "start"], label: "fly · sprite", info: "Your Mac (and anything with your Fly/Sprites login, including Claude Code) drives the control plane." },
+  { id: "o3", layer: "operator", a: "control", b: "flyedge", pts: [[300, 820], [300, 526]], lab: [292, 700, "end"], label: "", info: "The control plane configures Fly's edge (services, ports, certificates)." },
+  { id: "o4", layer: "operator", a: "control", b: "store", pts: [[640, 820], [640, 752]], lab: [648, 806, "start"], label: "deploy · secrets · fly ssh", info: "fly deploy replaces the logger's image; fly secrets sets its keys; fly ssh console gives a shell on it (which could edit /data; the chain would show it)." },
+  { id: "o5", layer: "operator", a: "control", b: "gpu", pts: [[810, 842], [1250, 842], [1250, 752]], lab: [1030, 836, "middle"], label: "", info: "" },
+  { id: "o6", layer: "operator", a: "control", b: "dash", pts: [[250, 830], [244, 830], [244, 340], [270, 340]], lab: [248, 600, "start"], label: "exec · files · egress policy · URL auth", info: "sprite exec/console/checkpoint, file copies, the egress allowlist and the URL auth setting all come from outside the Sprite through the Sprites API." },
+];
+const TRUST = [
+  { id: "x1", target: { group: "sprite" }, label: "Fly + org can change the Sprite", info: "Anyone who controls the Sprite (you, Fly, org members via sprite exec) can change the tap, OpenCode's config or this page. They can't reach Tinfoil or the GPU without going through the logger, because the Sprite holds no Tinfoil key or GPU key and its egress allowlist permits only the logger." },
+  { id: "x2", target: { group: "logger" }, label: "Fly + org: fly ssh / redeploy", info: "The logger holds the Tinfoil key, the gateway keys and the log. fly ssh console or a redeploy could read keys or edit /data. Edits break the chain; your browser's remembered heads and the continuity check catch rewrites." },
+  { id: "x3", target: { group: "gpu" }, label: "…", info: "" },
+  { id: "x4", target: { node: "flyedge" }, label: "Fly reads :443 traffic", info: "Fly's edge terminates TLS for the logger's HTTP service, so Fly could read model requests between the Sprite and the logger (SSH on :2222 stays encrypted)." },
+  { id: "x5", target: { node: "spriteedge" }, label: "Fly reads console traffic", info: "The Sprites edge terminates TLS for the console, and the URL is public: the shared password in Caddy is the only gate." },
+  { id: "x6", target: { group: "tinfoil" }, label: "trust: AMD/Intel, Tinfoil code", info: "Not changeable by Fly. You still trust AMD/Intel's hardware and keys, Tinfoil's open-source code (checked by measurement), and the router-to-model hop." },
+];
+// animation paths for each log entry; "-id" travels an edge backwards (a reply)
+function flowFor(e, p) {
+  if (p.kind === "model_call" && e.client === "gateway") return [["a1", "a2", "a3", "a4", "a5", "a6"], ["-a6", "-a5", "-a4", "-a3", "-a2", "-a1"], ["l2"]];
+  if (p.kind === "model_call") return [["l1", "c9", "l4"]];
+  if (p.kind === "ssh_exec") return [["a7", "a8", "a9"], ["l3"]];
+  if (p.kind === "ssh_result") return [["-a9", "-a8", "-a7"], ["l3"]];
+  if (p.kind === "ssh_refused") return [["a7", "a8"], ["l3"]];
+  if (["rotate", "tap_start"].includes(p.kind)) return [["l1", "c9", "l4"]];
+  return null;
+}
+const COLOR = { traffic: "#000", console: "#7a5bb5", logging: "#3d6fb6", verify: "#2e8b57", operator: "#b5761f", trust: "#c0392b" };
+
+// ---- GPU box: everything comes from the logger's /v1/info (ssh.targets.gpu), so the map shows where the
+// gateway actually connects. The label is the operator's declaration; the probe and host key are checked.
+function gpuTarget() { return L.info?.ssh?.targets?.gpu || null; }
+function gpuView(t) {
+  if (!t) return { key: "none", group: "GPU server", sub: "no gpu target configured on the logger", t1: "no target", t2: "",
+    o5: { from: "control", label: "", info: "" }, x3: { label: "no target", info: "The logger has no gpu target." }, info: "The logger reports no gpu target." };
+  const fly = t.network === "fly-private";
+  const where = `${t.user}@${t.host}:${t.port}`;
+  return {
+    key: [t.network, t.label, where, t.hostkey_sha256].join("|"),
+    group: "GPU server · " + (t.label || (fly ? "Fly Machine" : t.host)),
+    sub: fly ? "Fly private network (6PN) · no public IP" : `public internet · ${t.host}`,
+    t1: `sshd :${t.port}`, t2: `user ${t.user} · key ${(t.hostkey_sha256 || "not pinned").slice(7, 19)}`,
+    o5: fly ? { from: "control", label: "deploy · fly ssh", info: "fly ssh console reaches this GPU machine directly, bypassing the gateway and the log." }
+            : { from: "gpucp", label: "console · web terminal · proxy SSH", info: "Whoever holds the GPU provider account can open a web terminal or proxy SSH session on the pod, or change and restart it, without going through the gateway or the log." },
+    x3: fly ? { label: "fly ssh bypasses gateway", info: "fly ssh console reaches the GPU machine directly. The real GPU server should accept SSH only from the logger's egress IP." }
+            : { label: "provider access + open SSH port", info: `The SSH port (${t.host}:${t.port}) is reachable from the whole internet; only the gateway's key is accepted, but there is no source-IP restriction. The provider's console and the host machine's operator can reach the pod without the gateway.` },
+    info: `Where the gateway sends GPU commands: ${where}. ` + (t.label ? `Operator's description: ${t.label} (declared, not checked). ` : "") +
+      `The logger probes it every ${L.info?.ssh?.probe_interval_s || "?"}s with the pinned host key and its own key, running nothing; the hardware line comes from nvidia-smi output logged for this exact target.`,
+  };
+}
+let gpuViewKey = null;
+function applyGpuView() {
+  const v = gpuView(gpuTarget());
+  const grp = GROUPS.find(g => g.id === "gpu");
+  grp.label = v.group; grp.sub = v.sub;
+  NODES.gpu.t1 = v.t1; NODES.gpu.t2 = v.t2;
+  if (v.o5.from === "gpucp") NODES.gpucp = { x: 1140, y: 806, w: 220, h: 44, t1: "GPU provider control plane", t2: "console · API · web terminal" };
+  else delete NODES.gpucp;
+  const o5 = EDGES.find(e => e.id === "o5");
+  Object.assign(o5, v.o5.from === "gpucp"
+    ? { a: "gpucp", pts: [[1250, 806], [1250, 752]], lab: [1258, 784, "start"] }
+    : { a: "control", pts: [[810, 842], [1250, 842], [1250, 752]], lab: [1030, 836, "middle"] }, { label: v.o5.label, info: v.o5.info });
+  Object.assign(TRUST.find(x => x.id === "x3"), v.x3);
+  NODE_INFO.gpu = v.info;
+  if (v.key !== gpuViewKey) { gpuViewKey = v.key; drawMap(); }
+}
+// hardware name from nvidia-smi output logged for the current target only (never another machine's output)
+function gpuHardware() {
+  const t = gpuTarget(); if (!t) return null;
+  const where = `${t.user}@${t.host}:${t.port}`;
+  const execs = new Map(L.entries.map((e, k) => [e.seq, L.results[k].payload]).filter(([, p]) => p.kind === "ssh_exec"));
+  for (let k = L.entries.length - 1; k >= 0; k--) {
+    const p = L.results[k].payload;
+    if (p.kind !== "ssh_result" || execs.get(p.data.exec_seq)?.data.upstream !== where) continue;
+    const m = (p.data.stdout || "").match(/(NVIDIA [^,(\n|]+?)\s*(?:\(UUID|,|\|)/);
+    if (m) return { name: m[1].trim(), seq: L.entries[k].seq, at: L.entries[k].received_at };
+  }
+  return null;
+}
+const ago = iso => { if (!iso) return "?"; const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000)); return s < 90 ? s + "s ago" : s < 5400 ? Math.round(s / 60) + " min ago" : Math.round(s / 3600) + " h ago"; };
+function probeText(p) { return !p ? "no probe yet" : p.ok ? `ok · ${p.latency_ms} ms · ${ago(p.checked_at)}` : `FAILED ${ago(p.checked_at)}: ${p.error}` + (p.failing_since ? ` · down since ${p.failing_since.slice(11, 16)} UTC` : "") + (p.last_ok_at ? ` · last up ${ago(p.last_ok_at)}` : ""); }
+
+const NS = "http://www.w3.org/2000/svg";
+const mk = (tag, attrs, parent) => { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); parent?.appendChild(el); return el; };
+const mapState = { layers: new Set(["traffic", "logging", "verify"]), sel: null, edgeEls: {}, nodeEls: {}, trustEls: [], seen: 0, lastEvent: {} };
+
+function drawMap() {
+  const svg = $("map");
+  svg.replaceChildren();
+  mapState.edgeEls = {}; mapState.nodeEls = {}; mapState.trustEls = [];
+  const defs = mk("defs", {}, svg);
+  for (const [layer, color] of Object.entries(COLOR)) {
+    const m = mk("marker", { id: "arr-" + layer, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+    mk("path", { d: "M0,0 L10,5 L0,10 z", fill: color }, m);
+  }
+  for (const g of GROUPS) {
+    const el = mk("g", {}, svg);
+    mk("rect", { x: g.x, y: g.y, width: g.w, height: g.h, class: "grp" + (g.inner ? " inner" : "") }, el);
+    const tl = mk("text", { x: g.x + 10, y: g.y + 17, class: "glabel" }, el); tl.textContent = g.label;
+    if (g.sub) { const ts = mk("text", { x: g.x + 10, y: g.y + 31, class: "gsub" }, el); ts.textContent = g.sub; }
+  }
+  // egress allowlist band
+  const eg = mk("g", { style: "cursor:pointer" }, svg);
+  mk("rect", { x: EGRESS.x, y: EGRESS.y, width: EGRESS.w, height: EGRESS.h, fill: "#eef3fb", stroke: "#3d6fb6", "stroke-dasharray": "3 2" }, eg);
+  mapState.egressText = mk("text", { x: EGRESS.x + 8, y: EGRESS.y + 22, "font-size": 11, fill: "#1f3f6e" }, eg);
+  mapState.egressText.textContent = "egress allowlist: …";
+  eg.onclick = () => select({ egress: true });
+  const trustLayer = mk("g", {}, svg);
+  for (const t of TRUST) {
+    const box = t.target.group ? GROUPS.find(x => x.id === t.target.group) : { ...NODES[t.target.node], h: NODES[t.target.node].h };
+    const el = mk("g", { style: "cursor:pointer" }, trustLayer);
+    mk("rect", { x: box.x - 5, y: box.y - 5, width: box.w + 10, height: box.h + 10, fill: "none", stroke: COLOR.trust, "stroke-width": 2, "stroke-dasharray": "9 5" }, el);
+    const w = t.label.length * 6.1 + 12, tx0 = box.x + box.w - w + 5, ty0 = box.y + box.h + 7;
+    mk("rect", { x: tx0, y: ty0, width: w, height: 16, fill: "#f4cccc", stroke: COLOR.trust }, el);
+    const tx = mk("text", { x: tx0 + 6, y: ty0 + 12, "font-size": 10, fill: "#7a1f14" }, el); tx.textContent = t.label;
+    el.onclick = () => select({ trust: t.id });
+    mapState.trustEls.push(el);
+  }
+  const edgeLayer = mk("g", {}, svg), nodeLayer = mk("g", {}, svg), labelLayer = mk("g", {}, svg);
+  mapState.pulseLayer = mk("g", {}, svg);
+  for (const e of EDGES) {
+    const d = "M" + e.pts.map(p => p.join(",")).join(" L");
+    const g = mk("g", { "data-edge": e.id }, edgeLayer);
+    const two = e.layer === "traffic" || e.layer === "console";
+    const path = mk("path", { d, class: `edge ${e.layer}`, "marker-end": `url(#arr-${e.layer})`, ...(two ? { "marker-start": `url(#arr-${e.layer})` } : {}) }, g);
+    mk("path", { d, class: "hit" }, g);
+    const lg = mk("g", { class: "elabel" }, labelLayer);
+    if (e.label) {
+      const [lx, ly, anchor] = e.lab, w = e.label.length * 6.1 + 8;
+      const x0 = anchor === "middle" ? lx - w / 2 : anchor === "end" ? lx - w + 4 : lx - 4;
+      mk("rect", { x: x0, y: ly - 10, width: w, height: 14 }, lg);
+      const t = mk("text", { x: lx, y: ly, "text-anchor": anchor, fill: COLOR[e.layer] }, lg); t.textContent = e.label;
+    }
+    g.onclick = () => select({ edge: e.id });
+    mapState.edgeEls[e.id] = { g, path, lg };
+  }
+  for (const [id, n] of Object.entries(NODES)) {
+    const g = mk("g", { class: "node idle", "data-node": id }, nodeLayer);
+    mk("rect", { x: n.x, y: n.y, width: n.w, height: n.h }, g);
+    const t1 = mk("text", { x: n.x + 10, y: n.y + 21, class: "t1" }, g); t1.textContent = n.t1;
+    const t2 = mk("text", { x: n.x + 10, y: n.y + 38, class: "t2" }, g); t2.textContent = n.t2;
+    g.onclick = () => select({ node: id });
+    mapState.nodeEls[id] = g;
+  }
+  applyLayers();
+}
+
+function applyLayers() {
+  const on = mapState.layers;
+  for (const e of EDGES) { const { g, lg } = mapState.edgeEls[e.id]; g.classList.toggle("off", !on.has(e.layer)); lg.classList.toggle("off", !on.has(e.layer)); }
+  mapState.trustEls.forEach(el => el.classList.toggle("off", !on.has("trust")));
+  document.querySelectorAll("button.layer").forEach(b => b.classList.toggle("on", on.has(b.dataset.layer)));
+}
+document.querySelectorAll("button.layer").forEach(b => b.onclick = () => {
+  const l = b.dataset.layer; mapState.layers.has(l) ? mapState.layers.delete(l) : mapState.layers.add(l); applyLayers();
+});
+
+// ---- live status per node
+function nodeStatus() {
+  const s = S, st = {};
+  if (!s) return st;
+  const svc = Object.fromEntries(s.services.map(x => [x.name, x.status]));
+  const ts = s.tap?.status || {}, mg = s.model_gateway || {};
+  const vOk = s.verification?.ok;
+  const bad = L.results.filter(r => !r.ok).length;
+  const logOk = !L.error && !L.pinIssue && !bad && !(L.witness || []).length && L.info && !(L.continuity && !L.continuity.ok);
+  const pairs = L.entries.map((e, k) => [e, L.results[k]]);
+  const lastRes = [...pairs].reverse().find(([, r]) => r.payload.kind === "ssh_result");
+  st.you = store.get("logger-pins", null) ? (L.pinIssue ? "bad" : "ok") : "idle";
+  st.spriteedge = "ok"; st.mac = "idle"; st.onepw = "idle"; st.control = "warn";
+  st.caddy = svc.caddy === "running" ? "ok" : "bad";
+  st.ttyd = svc.ttyd === "running" ? "ok" : "bad";
+  st.dash = svc.dashboard === "running" ? "ok" : "bad";
+  st.opencode = (s.opencode_base_url || "").includes(":3300") ? "ok" : "bad";
+  st.tap = svc.tap !== "running" || ts.error ? "bad" : ts.spooled ? "warn" : "ok";
+  st.flyedge = s.logger_reach?.ok ? "ok" : "bad";
+  st.api = L.info ? "ok" : "bad";
+  st.mgw = mg.key_configured && (mg.clients || []).length ? "ok" : "bad";
+  st.lproxy = mg.proxy?.running ? "ok" : "bad";
+  st.sdkv = vOk ? "ok" : s.verify_error ? "bad" : "idle";
+  st.router = vOk ? "ok" : "bad";
+  st.model = vOk ? "ok" : "warn";
+  st.attest = vOk ? "ok" : "idle";
+  st.store = logOk ? "ok" : "bad";
+  st.sshgw = L.info?.ssh ? "ok" : "bad";
+  const probe = gpuTarget()?.probe;
+  st.gpu = !probe ? "idle" : probe.ok ? "ok" : "bad";
+  if (NODES.gpucp) st.gpucp = "warn";
+  return st;
+}
+
+function updateMap() {
+  applyGpuView();
+  if (!S) return;
+  const st = nodeStatus();
+  for (const [id, g] of Object.entries(mapState.nodeEls)) g.setAttribute("class", `node ${st[id] || "idle"}${mapState.sel?.node === id ? " sel" : ""}`);
+  const eg = S.egress || {};
+  mapState.egressText.textContent = eg.active
+    ? "egress allowlist: only " + eg.rules.filter(r => r.action !== "deny").map(r => r.domain || r.include).join(", ")
+    : "egress allowlist: NOT ACTIVE (Sprite can reach anything)";
+  if (mapState.seen && L.entries.length > mapState.seen) L.entries.slice(mapState.seen).forEach((e, k) => setTimeout(() => animateEntry(e), k * 1400));
+  mapState.seen = L.entries.length;
+  if (mapState.sel) renderInfo();
+}
+
+function pulse(edgeRef, color) {
+  const back = edgeRef.startsWith("-"), edgeId = back ? edgeRef.slice(1) : edgeRef;
+  return new Promise(res => {
+    const el = mapState.edgeEls[edgeId], def = EDGES.find(x => x.id === edgeId);
+    if (!el || !mapState.layers.has(def.layer)) return res();
+    const path = el.path, total = path.getTotalLength();
+    const dot = mk("circle", { r: 6, class: "pulse", fill: color, stroke: "#000", "stroke-width": 1 }, mapState.pulseLayer);
+    const t0 = performance.now(), dur = Math.max(350, Math.min(900, total * 1.6));
+    (function step(t) {
+      const f = Math.min(1, (t - t0) / dur), p = path.getPointAtLength((back ? 1 - f : f) * total);
+      dot.setAttribute("cx", p.x); dot.setAttribute("cy", p.y);
+      if (f < 1) requestAnimationFrame(step); else { dot.remove(); res(); }
+    })(t0);
+  });
+}
+const pulseColor = id => id.startsWith("-") ? "#cde8d8" : EDGES.find(x => x.id === id)?.layer === "logging" ? "#9fc0ea" : "#ffffff";
+async function runFlow(flow) { for (const step of flow) for (const id of step) await pulse(id, pulseColor(id)); }
+async function animateEntry(e) {
+  let p; try { p = JSON.parse(e.payload); } catch { return; }
+  const flow = flowFor(e, p); if (!flow) return;
+  mapState.lastEvent[p.kind + ":" + e.client] = e;
+  await runFlow(flow);
+}
+$("m-replay").onclick = () => { const e = L.entries[L.entries.length - 1]; if (e) animateEntry(e); };
+$("m-demo").onclick = async () => {
+  const demos = [
+    ["Model call: OpenCode → tap → egress → Fly edge → model gateway (+key) → tinfoil-proxy → router → model; the reply streams back; the gateway logs it", flowFor({ client: "gateway" }, { kind: "model_call" })],
+    ["…and the tap sends its own witness record of the same exchange to the logger API", flowFor({ client: "scaffold" }, { kind: "model_call" })],
+    ["GPU command: OpenCode → egress → Fly edge (TCP) → SSH gateway → GPU; ssh_exec is logged before it runs", flowFor({}, { kind: "ssh_exec" })],
+    ["…the output comes back and ssh_result is logged", flowFor({}, { kind: "ssh_result" })],
+  ];
+  for (const [label, flow] of demos) { $("m-info").innerHTML = `<b>Demo:</b> ${esc(label)}`; await runFlow(flow); await new Promise(r => setTimeout(r, 350)); }
+  if (mapState.sel) renderInfo();
+};
+
+// ---- info panel
+function select(sel) { mapState.sel = sel; for (const { path } of Object.values(mapState.edgeEls)) path.classList.remove("sel"); if (sel.edge) mapState.edgeEls[sel.edge].path.classList.add("sel"); updateMap(); renderInfo(); }
+const REL = {
+  traffic: ["talks to", "talked to by"], console: ["console → ", "console ← "], logging: ["logs to", "logged by"],
+  verify: ["verifies", "verified by"], operator: ["controls", "controlled by"],
+};
+function rel(id) {
+  const out = {};
+  for (const e of EDGES) {
+    if (e.a === id) (out[REL[e.layer][0]] ??= []).push(NODES[e.b].t1 + (e.label ? " · " + e.label : ""));
+    if (e.b === id) (out[REL[e.layer][1]] ??= []).push(NODES[e.a].t1 + (e.label ? " · " + e.label : ""));
+  }
+  const n = NODES[id];
+  for (const t of TRUST) {
+    const box = t.target.group ? GROUPS.find(g => g.id === t.target.group) : NODES[t.target.node];
+    if (t.target.node === id || (t.target.group && n.x >= box.x && n.x < box.x + box.w && n.y >= box.y && n.y < box.y + box.h)) (out["trust gaps"] ??= []).push(t.label);
+  }
+  return out;
+}
+function liveFacts(id) {
+  const s = S || {}, v = s.verification, ts = s.tap?.status || {}, g = L.info?.ssh, mg = s.model_gateway || {};
+  const count = (k, c) => L.entries.filter((e, i) => L.results[i].payload.kind === k && (!c || e.client === c)).length;
+  const f = {
+    you: [["keys pinned", store.get("logger-pins", null)?.first_seen || "not yet"], ["heads remembered", L.witnessCount || 0], ["tap vs gateway", L.agree ? `${L.agree.match} match · ${L.agree.differ} differ · ${L.agree.gwOnly} gateway-only · ${L.agree.tapOnly} tap-only` : "—"]],
+    spriteedge: [["url", location.host]],
+    caddy: [["gate", "basic auth, user lucid (password in 1Password)"]],
+    ttyd: [["tmux session", "main"], ["cwd", s.session?.dir]],
+    dash: [["session", s.session?.id], ["logger reach", s.logger_reach?.ok ? s.logger_reach.ms + " ms" : s.logger_reach?.error]],
+    opencode: [["baseURL", s.opencode_base_url], ["Tinfoil key on Sprite", s.tinfoil_key_on_sprite ? "YES (should be removed)" : "no"], ["session dir", s.session?.dir]],
+    tap: [["sent", ts.sent], ["spooled", ts.spooled], ["last error", ts.last_error || "none"], ["signing key", short(ts.pubkey)]],
+    flyedge: [["logger reach", s.logger_reach?.ok ? s.logger_reach.ms + " ms" : s.logger_reach?.error]],
+    api: L.info ? [["log id", L.info.log_id], ["entries", L.entries.length], ["head", `#${L.info.head.seq} ${short(L.info.head.hash)}`], ["image", L.info.image_ref]] : [["error", L.error]],
+    mgw: [["clients", (mg.clients || []).join(", ")], ["Tinfoil key configured", String(mg.key_configured)], ["model calls logged", count("model_call", "gateway")]],
+    lproxy: [["running", String(mg.proxy?.running)], ["restarts", mg.proxy?.restarts], ["enclave", mg.proxy?.enclave]],
+    sdkv: v ? [["verified", v.ok ? "yes" : "NO"], ["checked", v.at]] : [["error", s.verify_error || "not yet"]],
+    router: v ? [["release", `${v.repo} ${v.release}`], ["platform", v.platform], ["measurement", short(v.measurement)], ["tls key", short(v.tls_key)]] : [["verified", "no"]],
+    model: [["last enclave seen", (() => { const r = [...L.results].reverse().find(r => r.payload.kind === "model_call" && r.payload.data.enclave); return r?.payload.data.enclave; })()]],
+    attest: v ? [["release", v.release], ["digest", short(v.release_digest)]] : [],
+    store: L.info ? [["entries", `${L.entries.length} (${L.results.filter(r => !r.ok).length} bad)`], ["archived logs", (L.info.archives || []).length], ["continuity", L.continuity?.text || "—"]] : [["error", L.error]],
+    sshgw: g ? [["targets", Object.entries(g.targets).map(([n, t]) => `${n} → ${t.host}:${t.port}`).join(", ")], ["commands", count("ssh_exec")], ["refused", count("ssh_refused")]] : [["status", "no gateway info"]],
+    gpucp: [["reaches", "the pod directly (console, web terminal, proxy SSH, stop/restart)"]],
+    gpu: (() => { const t = gpuTarget(); if (!t) return [["target", "none"]]; const hw = gpuHardware();
+      return [["target", `${t.user}@${t.host}:${t.port}`], ["network", t.network], ["declared", t.label || "—"], ["host key", t.hostkey_sha256 || "NOT PINNED"],
+        ["live probe", probeText(t.probe)], ["hardware (from log)", hw ? `${hw.name} · #${hw.seq} · ${ago(hw.at)}` : "no nvidia-smi output logged for this target yet"],
+        ...(() => { const r = [...L.results].reverse().find(r => r.payload.kind === "ssh_result"); return r ? [["last command", `exit ${r.payload.data.exit_status} · ${r.payload.data.duration_ms} ms`]] : []; })()]; })(),
+    mac: [["runs", "fly deploy · fly secrets · fly ssh · sprite exec · op read"]],
+    onepw: [["items", "Tinfoil API key · console password"]],
+    control: [["reaches", "Sprite, logger, Fly edge" + (gpuTarget()?.network === "fly-private" ? ", GPU machine" : "")]],
+  }[id] || [];
+  return f.length ? `<div class="live">${f.map(([k, v]) => `<div><span class="k">${esc(k)}</span> ${esc(v)}</div>`).join("")}</div>` : "";
+}
+const NODE_INFO = {
+  you: "Your browser. It doesn't trust the page's claims about the log: it fetches entries from the logger itself and checks every hash and signature with WebCrypto.",
+  spriteedge: "Fly's front door for *.sprites.app. The console URL is public; it terminates TLS and forwards to Caddy.",
+  mac: "Where the operator commands run. Anything with your Fly/Sprites login can change every box on this map.",
+  onepw: "Source of the Tinfoil key and the console password. They're piped from here into Fly secrets and Sprite files without being printed.",
+  caddy: "Caddy asks for the shared password (user lucid) before any page, API call or terminal session.",
+  ttyd: "Browser terminal attached to tmux session 'main'. New session kills and recreates it in the new session directory.",
+  dash: "Serves this page and its status JSON; runs New session. It has no Tinfoil key and reads Tinfoil facts from the logger.",
+  opencode: "The coding agent. It can reach the outside world only through the logger: model calls via the tap and model gateway, GPU via the SSH gateway.",
+  tap: "Records what the Sprite saw of each model call and signs it with the Sprite's key: an independent witness to compare with the gateway's own record.",
+  flyedge: "Fly's proxy in front of the logger. It decrypts :443 (HTTP) traffic before forwarding; :2222 is forwarded as raw TCP, so SSH stays encrypted.",
+  api: "The logger's HTTP API: public info and head, read-token entries, client-signed append and rotate.",
+  mgw: "The only route to Tinfoil. Swaps the model token for the Tinfoil key, streams the reply back, and logs the exchange (gateway-signed).",
+  lproxy: "Tinfoil's open-source proxy, running on the logger. It verifies the enclave before sending anything and pins its keys.",
+  sdkv: "Tinfoil's Python SDK verifier, run on the logger every 10 minutes; its result is published in /v1/info and shown in the Tinfoil panel.",
+  router: "Tinfoil's router in a hardware enclave. Its code is measured by the CPU and compared against Tinfoil's published build.",
+  model: "The enclave running gpt-oss-120b. The router forwards to it over an attested encrypted channel.",
+  attest: "Where the expected measurements come from: Tinfoil's GitHub release, with provenance on Sigstore.",
+  store: "Append-only, hash-chained log on the logger's volume. Every entry is signed by the logger and by the client that produced it; sessions are linked chains.",
+  sshgw: "Command-only SSH gateway. Logs each command before running it and its output after. The agent never holds GPU credentials.",
+  gpu: "",
+  control: "Fly's and Sprites' APIs. Whoever holds the login can deploy, set secrets, exec into or shell into every machine here.",
+};
+function renderInfo() {
+  const sel = mapState.sel; if (!sel) return;
+  if (sel.egress) {
+    const eg = S?.egress || {};
+    $("m-info").innerHTML = `<h5>Sprite egress allowlist <span class="badge ${eg.active ? "ok" : "bad"}">${eg.active ? "active" : "not active"}</span></h5>
+      <div>A DNS-based allowlist set from outside the Sprite (Sprites API) and read-only inside it. Domains not listed get DNS REFUSED; raw IP connections are blocked unless resolved from an allowed domain. It is what forces all of the agent's outside traffic through the logger.</div>
+      <div class="live"><span class="k">rules</span> ${esc(JSON.stringify(eg.rules || []))}<br><span class="k">evidence</span> ${esc(eg.source)}: ${esc(JSON.stringify(eg.observed || {}))}</div>`;
+    return;
+  }
+  if (sel.trust) {
+    const t = TRUST.find(x => x.id === sel.trust);
+    $("m-info").innerHTML = `<h5>Trust gap · ${esc(t.label)} <span class="badge bad">trust</span></h5><div>${esc(t.info)}</div>`;
+    return;
+  }
+  if (sel.edge) {
+    const e = EDGES.find(x => x.id === sel.edge);
+    $("m-info").innerHTML = `<h5>${esc(NODES[e.a].t1)} → ${esc(NODES[e.b].t1)} <span class="badge" style="border-color:${COLOR[e.layer]}">${esc(e.layer)}</span></h5><div>${esc(e.info)}</div>`;
+    return;
+  }
+  const id = sel.node, r = rel(id);
+  $("m-info").innerHTML = `<h5>${esc(NODES[id].t1)}</h5><div>${esc(NODE_INFO[id] || "")}</div>
+    <div class="cols">${Object.entries(r).map(([k, list]) => `<div><div class="k">${esc(k)}</div><ul>${list.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div>
+    ${liveFacts(id)}`;
+}
+drawMap();
+
+// ---- new session
+$("ns-open").onclick = () => { $("ns-count").textContent = L.entries.length; $("ns-msg").textContent = ""; $("ns-bar").hidden = false; };
+$("ns-cancel").onclick = () => { $("ns-bar").hidden = true; };
+$("ns-go").onclick = async () => {
+  $("ns-go").disabled = true; $("ns-msg").textContent = "stopping agent, rotating log…";
+  try {
+    const r = await fetch("/api/new-session", { method: "POST" });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    $("ns-msg").textContent = `started ${d.session} · log ${d.log.opened.log_id}`;
+    document.querySelector("#termpane iframe").src = "/term/?" + Date.now();
+    open = new Set();
+    await refresh();
+    await syncLogger(true);
+    setTimeout(() => { $("ns-bar").hidden = true; }, 4000);
+  } catch (e) {
+    $("ns-msg").textContent = "failed: " + e.message;
+  } finally { $("ns-go").disabled = false; }
+};
+
+async function refresh() {
+  try { render(await (await fetch(BASE + "api/status")).json()); }
+  catch (e) { $("updated").textContent = "dashboard unreachable: " + e.message; return; }
+  syncLogger(!L.entries.length);
+}
+$("reverify").onclick = async () => { await fetch("/api/refresh", { method: "POST" }); refresh(); };
+if (VIEW) {
+  for (const id of ["ns-open", "ns-bar", "reverify"]) $(id)?.remove();
+  // read-only terminal: watches the agent's tmux session; keyboard input is dropped by ttyd and by tmux
+  const f = document.querySelector("#termpane iframe"); f.src = BASE + "term/";
+  $("tabhint").innerHTML = 'watching tmux session "main" · <b>read-only</b>, typing does nothing';
+  $("b-view").hidden = false;
+  document.title += " (view only)";
+} else {
+  const f = document.querySelector("#termpane iframe"); f.src = f.dataset.src;
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Run OpenCode in the current session (~/workspace -> ~/sessions/<id>). Model calls go OpenCode -> tap -> logger's
+# model gateway -> Tinfoil. The Sprite holds no Tinfoil key: only a model token that works at the logger.
+# OpenCode's own state (history, sessions) lives in ~/sessions/<id>.state, so each session starts with no memory
+# and the agent can't read it (external_directory is denied in opencode.json).
+set -e
+if ! curl -s -o /dev/null http://127.0.0.1:3300/_tap/status; then
+  echo "tap not responding; check: sprite-env services list" >&2; exit 1
+fi
+export LUCID_MODEL_TOKEN="$(cat ~/.config/tap/model_token)"
+export PATH="$HOME/.elan/bin:$PATH"  # Lean toolchain, preinstalled (offline)
+if [ -n "$1" ] && [ -d "$1" ]; then cd "$1"; shift; else cd "$HOME/workspace"; fi
+DIR="$(pwd -P)"
+export XDG_DATA_HOME="$DIR.state/data" XDG_STATE_HOME="$DIR.state/state"
+mkdir -p "$XDG_DATA_HOME" "$XDG_STATE_HOME"
+exec opencode "$@"

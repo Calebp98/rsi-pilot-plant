@@ -1,0 +1,14 @@
+name: smoke
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: End-to-end plant test (no credentials)
+        run: tests/smoke.sh

@@ -1,0 +1,64 @@
+From 6b6e390d3611b4d573988a2b0fe7aa1e39a2c351 Mon Sep 17 00:00:00 2001
+From: Caleb Parikh <caleb@lucidcomputing.ai>
+Date: Fri, 25 Sep 2026 16:38:07 +0100
+Subject: [PATCH] Pilot plant: remote GPU section in program.md;
+ DEVICE_BATCH_SIZE 8 to fit RTX 3080 10GB
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ program.md | 28 ++++++++++++++++++++++++++++
+ train.py   |  2 +-
+ 2 files changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/program.md b/program.md
+index dea9bcc..cb5561a 100644
+--- a/program.md
++++ b/program.md
+@@ -112,3 +112,31 @@ The idea is that you are a completely autonomous researcher trying things out. I
+ **NEVER STOP**: Once the experiment loop has begun (after the initial setup), do NOT pause to ask the human if you should continue. Do NOT ask "should I keep going?" or "is this a good stopping point?". The human might be asleep, or gone from a computer and expects you to continue working *indefinitely* until you are manually stopped. You are autonomous. If you run out of ideas, think harder — read papers referenced in the code, re-read the in-scope files for new angles, try combining previous near-misses, try more radical architectural changes. The loop runs until the human interrupts you, period.
+ 
+ As an example use case, a user might leave you running while they sleep. If each experiment takes you ~5 minutes then you can run approx 12/hour, for a total of about 100 over the duration of the average human sleep. The user then wakes up to experimental results, all completed by you while they slept!
++
++## This setup: the GPU is remote (Lucid pilot plant)
++
++*Added by the human for this machine. Everything above still applies; this section only replaces how files get to the GPU and how runs are launched.*
++
++This machine (where you edit files and run git) has **no GPU and no internet**. The GPU is a separate server reached only with `ssh gpu '<command>'`. Every command and its output is recorded in a signed log. It already has the repo at `/root/autoresearch`, its `uv` environment, and the data and tokenizer in `/root/.cache/autoresearch/` (setup is done; skip the "verify data" step or check it with `ssh gpu 'ls /root/.cache/autoresearch/data | wc -l'`).
++
++Your git repo is here, on this machine. The GPU copy of `train.py` is just a working copy: always copy yours over before a run.
++
++Replace step 4 of the loop ("Run the experiment") with:
++
++```
++ssh gpu 'cat > /root/autoresearch/train.py' < train.py
++ssh gpu 'cd /root/autoresearch && setsid nohup timeout 900 /root/.local/bin/uv run train.py > run.log 2>&1 < /dev/null & echo started'
++```
++
++Then wait and check, repeating the second command until the summary appears (a run takes several minutes; don't start another run while one is going):
++
++```
++ssh gpu 'sleep 240; tail -c 300 /root/autoresearch/run.log'
++ssh gpu 'grep "^val_bpb:\|^peak_vram_mb:" /root/autoresearch/run.log'
++```
++
++For crashes, read `ssh gpu 'tail -n 50 /root/autoresearch/run.log'`. To kill a run: `ssh gpu 'pkill -f "[t]rain.py"'`.
++
++GPU: one NVIDIA RTX 3080, **10 GB VRAM** (the reference was tuned on an 80 GB H100). `DEVICE_BATCH_SIZE` was lowered from 128 to 8 only so the baseline fits; everything else is the reference default. Memory is a hard limit here: a run that needs more than ~9.5 GB will crash with CUDA OOM.
++
++The GPU server stops itself after 60 minutes with no GPU work, so keep the loop going; if `ssh gpu` starts failing with a connection error, stop and tell the human.
+diff --git a/train.py b/train.py
+index 2e74397..c2d2ccc 100644
+--- a/train.py
++++ b/train.py
+@@ -448,7 +448,7 @@ FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
+ 
+ # Model size
+ DEPTH = 8               # number of transformer layers
+-DEVICE_BATCH_SIZE = 128  # per-device batch size (reduce if OOM)
++DEVICE_BATCH_SIZE = 8  # per-device batch size (reduce if OOM)
+ 
+ # ---------------------------------------------------------------------------
+ # Setup: tokenizer, model, optimizer, dataloader
+-- 
+2.52.0
+

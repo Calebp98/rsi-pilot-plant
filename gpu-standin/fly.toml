@@ -1,0 +1,10 @@
+# Stand-in GPU server (sshd on 2200: Fly's built-in "fly ssh" holds 22). No [http_service]/[[services]]: no public IPs; reachable only at
+# <your-standin-app>.internal:2200 from apps in the same Fly org (i.e. the logger).
+app = "your-standin-app"
+primary_region = "lhr"
+
+[build]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

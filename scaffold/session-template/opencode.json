@@ -1,0 +1,43 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "tinfoil/gpt-oss-120b",
+  "small_model": "tinfoil/gpt-oss-120b",
+  "share": "disabled",
+  "autoupdate": false,
+  "permission": {
+    "edit": "allow",
+    "bash": "allow",
+    "webfetch": "ask",
+    "external_directory": "deny"
+  },
+  "provider": {
+    "tinfoil": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Tinfoil (via tap -> logger model gateway)",
+      "options": {
+        "baseURL": "http://127.0.0.1:3300/v1",
+        "apiKey": "{env:LUCID_MODEL_TOKEN}"
+      },
+      "models": {
+        "gpt-oss-120b": {
+          "name": "GPT-OSS 120B"
+        },
+        "gemma4-31b": {
+          "name": "Gemma 4 31B"
+        },
+        "glm-5-3-flash": {
+          "name": "GLM-5.3 Flash"
+        },
+        "deepseek-v4-1-flash": {
+          "name": "DeepSeek V4.1 Flash"
+        },
+        "glm-5-3": {
+          "name": "GLM-5.3"
+        },
+        "kimi-k3": {
+          "name": "Kimi K3"
+        }
+      }
+    }
+  }
+}

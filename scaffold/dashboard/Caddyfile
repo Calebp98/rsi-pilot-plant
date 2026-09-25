@@ -1,0 +1,38 @@
+# Sprite URL -> :8080. /term/ is the browser terminal (ttyd), everything else is the dashboard.
+# The URL is public; one shared team password (bcrypt, user "lucid") guards every route, terminal included,
+# except /view/<secret>/: the read-only dashboard and a read-only terminal (no writes, no keyboard input). The dashboard server checks the secret
+# (~/.config/dashboard/view_secret) and 404s anything else under /view/.
+# BCRYPT_HASH is substituted at deploy time (the Docker entrypoint does it from state/scaffold/console_password;
+# on a Sprite, run `caddy hash-password` and edit it in). Keep the password in a password manager.
+{
+	admin off
+	auto_https off
+}
+:8080 {
+	# read-only terminal: the dashboard server checks the secret (forward_auth), then ttyd-view (no input) serves it
+	@viewterm path_regexp viewterm ^/view/[^/]+/term(/.*)?$
+	handle @viewterm {
+		# route keeps this order; by default Caddy would rewrite before forward_auth and the check would see /rterm
+		route {
+			forward_auth 127.0.0.1:8000 {
+				uri /_view_auth
+			}
+			rewrite * /rterm{re.viewterm.1}
+			reverse_proxy 127.0.0.1:7682
+		}
+	}
+	handle /view/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle {
+		basic_auth {
+			lucid BCRYPT_HASH
+		}
+		handle /term* {
+			reverse_proxy 127.0.0.1:7681
+		}
+		handle {
+			reverse_proxy 127.0.0.1:8000
+		}
+	}
+}
