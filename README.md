@@ -20,6 +20,11 @@ See [docs/architecture.md](docs/architecture.md) for the full picture and [docs/
                GPU server (sshd; only the gateway's key)
 ```
 
+You can also see this somewhat AI sloppy diagram with the implementation we're using at Lucid at the time of publishing.
+
+<img width="1002" height="614" alt="image" src="https://github.com/user-attachments/assets/72a2ad76-cf77-40a9-aa94-0b3a50f60dbe" />
+
+
 ## Quick start (Docker)
 
 Needs Docker with Compose v2.24+. Without a tinfoil API key everything works except the model replies (they come back as errors, and those are logged too).
