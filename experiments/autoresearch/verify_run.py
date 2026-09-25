@@ -4,7 +4,7 @@
   uv run --with cryptography --with zstandard python verify_run.py [--repo ~/workspace] [--pod-check]
 
 PLANT_EXEC is the command prefix that runs a shell command on the scaffold (default: the Sprite CLI for a
-Sprite named tinfoil-scaffold; for docker compose use "docker compose exec -T scaffold").
+Sprite named tinfoil-scaffold; for docker compose use "docker compose exec -T -u agent scaffold").
 
 Checks, without trusting the Sprite's dashboard:
   1. The log chain: seq, prev links, sha256(canonical record), logger signature, client signatures,

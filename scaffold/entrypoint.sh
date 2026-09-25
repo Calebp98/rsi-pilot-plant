@@ -5,7 +5,9 @@
 # Env: LOGGER_URL (tap -> logger, e.g. http://logger:8080), BROWSER_LOGGER_URL (browser -> logger),
 #      GATEWAY_HOST (SSH gateway host, default: LOGGER_URL's host), GATEWAY_PORT (default 2222),
 #      SSH_TARGETS (space-separated gateway usernames to add as ssh hosts, default "gpu").
+# Runs as root: reads /run/plant (owned by the host user), sets up /home/agent, then drops to agent.
 set -eu
+export HOME=/home/agent USER=agent
 K=/run/plant
 for f in tap_ed25519.pem model_token read_token id_ed25519 id_ed25519.pub known_hosts_lucid console_password; do
   [ -f "$K/$f" ] || { echo "missing $K/$f: run 'docker compose run --rm init' first" >&2; exit 1; }
@@ -58,4 +60,7 @@ if [ ! -e ~/workspace ]; then
   mkdir ~/workspace && cp /opt/plant/dashboard/session-template/* ~/workspace/
 fi
 
-exec supervisord -c /opt/plant/supervisord.conf
+chown -R agent:agent "$HOME/.config" "$HOME/.ssh" "$HOME/.local" "$HOME/sessions"
+[ -L "$HOME/workspace" ] || chown -R agent:agent "$HOME/workspace"
+chown agent:agent "$HOME"
+exec setpriv --reuid=agent --regid=agent --init-groups supervisord -c /opt/plant/supervisord.conf

@@ -41,7 +41,7 @@ dc up -d --wait --wait-timeout 180 logger gpu scaffold console
 
 L=http://127.0.0.1:18081
 TOKEN="$(cat "$STATE/s/scaffold/read_token")"
-sx() { dc exec -T scaffold bash -lc "$1"; }
+sx() { dc exec -T -u agent scaffold bash -lc "$1"; }
 
 echo "logger"
 curl -fsS "$L/healthz" >/dev/null && pass "healthz"

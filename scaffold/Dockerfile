@@ -42,5 +42,7 @@ RUN mkdir -p /tmp/warm && cp /opt/plant/dashboard/session-template/opencode.json
  && cd /tmp/warm && (timeout 120 opencode models tinfoil || true) && rm -rf /tmp/warm \
  && ls ~/.cache/opencode 2>/dev/null || true
 
+# The entrypoint starts as root to read the keys mounted at /run/plant whatever their host owner, then drops to agent.
+USER root
 EXPOSE 8080
 ENTRYPOINT ["/opt/plant/entrypoint.sh"]

@@ -23,7 +23,7 @@ Start the agent (`agent` in the console terminal) with Karpathy's prompt: *"Hi h
 ## Checking a run
 
 ```sh
-# PLANT_EXEC runs a command on the scaffold; for docker compose use "docker compose exec -T scaffold"
+# PLANT_EXEC runs a command on the scaffold; for docker compose use "docker compose exec -T -u agent scaffold"
 PLANT_LOGGER_URL=https://<logger> PLANT_EXEC="sprite -s tinfoil-scaffold exec --" \
 uv run --with cryptography --with zstandard python verify_run.py [--repo ~/workspace] [--pod-check]
 ```

@@ -93,10 +93,13 @@ def main():
         f"MODEL_CLIENT_TOKENS=scaffold:{model_token}",
     ]) + "\n")
 
-    # The scaffold runs as uid 1000 and reads state/scaffold through a bind mount.
+    # This runs as root in a container: hand everything to whoever owns ./state on the host, so compose can read
+    # the env files. (The scaffold's entrypoint reads its keys as root, then drops privileges.)
     if os.geteuid() == 0:
-        for p in [scaffold, *scaffold.iterdir()]:
-            os.chown(p, 1000, 1000)
+        st = STATE.stat()
+        for p in [STATE, *STATE.rglob("*")]:
+            if "old-" not in str(p.relative_to(STATE)).split("/")[0]:
+                os.chown(p, st.st_uid, st.st_gid)
     print(f"initialised {STATE}")
     print(f"console: http://127.0.0.1:8080  user lucid  password {console_password}")
     print("         (also in state/scaffold/console_password)")
