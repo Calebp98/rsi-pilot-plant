@@ -13,7 +13,7 @@ x-image-tag: &tag ${PLANT_TAG:-latest}
 services:
   init:
     profiles: [init]
-    image: ghcr.io/lucid-computing/rsi-pilot-plant-logger:${PLANT_TAG:-latest}
+    image: ${PLANT_REGISTRY:-ghcr.io/calebp98}/rsi-pilot-plant-logger:${PLANT_TAG:-latest}
     build: ./logger
     entrypoint: ["python", "-u", "/tools/init.py"]
     volumes:
@@ -22,7 +22,7 @@ services:
     network_mode: none
 
   logger:
-    image: ghcr.io/lucid-computing/rsi-pilot-plant-logger:${PLANT_TAG:-latest}
+    image: ${PLANT_REGISTRY:-ghcr.io/calebp98}/rsi-pilot-plant-logger:${PLANT_TAG:-latest}
     build: ./logger
     env_file:
       - path: state/logger.env
@@ -40,7 +40,7 @@ services:
       retries: 20
 
   scaffold:
-    image: ghcr.io/lucid-computing/rsi-pilot-plant-scaffold:${PLANT_TAG:-latest}
+    image: ${PLANT_REGISTRY:-ghcr.io/calebp98}/rsi-pilot-plant-scaffold:${PLANT_TAG:-latest}
     build: ./scaffold
     environment:
       LOGGER_URL: http://logger:8080
@@ -53,7 +53,7 @@ services:
       logger: {condition: service_healthy}
 
   console:
-    image: ghcr.io/lucid-computing/rsi-pilot-plant-scaffold:${PLANT_TAG:-latest}
+    image: ${PLANT_REGISTRY:-ghcr.io/calebp98}/rsi-pilot-plant-scaffold:${PLANT_TAG:-latest}
     entrypoint: ["caddy", "reverse-proxy", "--from", ":8080", "--to", "scaffold:8080"]
     ports:
       - "127.0.0.1:8080:8080"
@@ -61,7 +61,7 @@ services:
     depends_on: [scaffold]
 
   gpu:
-    image: ghcr.io/lucid-computing/rsi-pilot-plant-gpu-standin:${PLANT_TAG:-latest}
+    image: ${PLANT_REGISTRY:-ghcr.io/calebp98}/rsi-pilot-plant-gpu-standin:${PLANT_TAG:-latest}
     build: ./gpu-standin
     env_file:
       - path: state/gpu.env

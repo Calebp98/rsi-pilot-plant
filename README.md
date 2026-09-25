@@ -25,7 +25,7 @@ It's a pilot plant, not a product: the point is to see what it takes to make an 
 Needs Docker with Compose v2.24+. A Tinfoil API key is optional: without one, everything works except the model replies (they come back as errors, and those are logged too).
 
 ```sh
-git clone https://github.com/Lucid-Computing/rsi-pilot-plant && cd rsi-pilot-plant
+git clone https://github.com/Calebp98/rsi-pilot-plant && cd rsi-pilot-plant
 docker compose run --rm init                  # generates every key and token into ./state
 export TINFOIL_API_KEY=...                    # optional, from https://tinfoil.sh
 docker compose up -d                          # pulls images from GHCR; add --build to build locally
@@ -63,9 +63,9 @@ Parts are usable on their own: the logger is one Python process with no dependen
 
 | Path | What |
 |---|---|
-| `logger/` | Append-only signed log (`app.py`), model gateway to Tinfoil (`model_gateway.py`), command-only SSH gateway (`ssh_gateway.py`). Image: `ghcr.io/lucid-computing/rsi-pilot-plant-logger` |
-| `scaffold/` | The agent's machine: tap, dashboard + map, OpenCode session template, browser terminal. Image: `ghcr.io/lucid-computing/rsi-pilot-plant-scaffold` |
-| `gpu-standin/` | sshd with a fake `nvidia-smi`, for testing without a GPU. Image: `ghcr.io/lucid-computing/rsi-pilot-plant-gpu-standin` |
+| `logger/` | Append-only signed log (`app.py`), model gateway to Tinfoil (`model_gateway.py`), command-only SSH gateway (`ssh_gateway.py`). Image: `ghcr.io/calebp98/rsi-pilot-plant-logger` |
+| `scaffold/` | The agent's machine: tap, dashboard + map, OpenCode session template, browser terminal. Image: `ghcr.io/calebp98/rsi-pilot-plant-scaffold` |
+| `gpu-standin/` | sshd with a fake `nvidia-smi`, for testing without a GPU. Image: `ghcr.io/calebp98/rsi-pilot-plant-gpu-standin` |
 | `gpu-runpod/` | Idle watchdog for a Runpod GPU pod |
 | `tools/` | `init.py` (local keys), `verify_log.py` (independent chain check) |
 | `local/` | Laptop-only agent and chat app |
